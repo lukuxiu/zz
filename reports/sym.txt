@@ -1,0 +1,25 @@
+﻿CardViewer.vue:49 <img
+CardViewer.vue:52 :class="['card-inline-img', { zoomed: isImgZoomed }]"
+CardViewer.vue:53 @click="handleImgClick"
+CardViewer.vue:56 <div class="inline-img-tip">📊 原始知识脉络高清大图（点击可切换缩放 / 弹出原图）</div>
+CardViewer.vue:116 <span v-if="part.type === 'symbol'" class="symbol-chip">{{ part.text }}</span>
+CardViewer.vue:130 <button class="source-img-btn" @click="$emit('view-image', card)">
+CardViewer.vue:152 const isImgZoomed = ref(false)
+CardViewer.vue:154 function handleImgClick() {
+CardViewer.vue:155 isImgZoomed.value = !isImgZoomed.value
+CardViewer.vue:230 parts.push({ type: 'symbol', text: match[1] })
+CardViewer.vue:598 .symbol-chip {
+CardViewer.vue:629 .source-img-btn {
+CardViewer.vue:643 .source-img-btn:hover {
+CardViewer.vue:663 .card-inline-img {
+CardViewer.vue:674 .card-inline-img.zoomed {
+CardViewer.vue:679 .inline-img-tip {
+CardViewer.vue:716 .source-img-btn {
+MistakesView.vue:85 <button class="view-btn btn-img" @click="$emit('view-image', card)">
+MistakesView.vue:393 .btn-img {
+<p>②<span class="keyword" style="color:#2000ff;font-weight:bold;">马克思经济学说的核心内容和</span><span class="keyword" style="color:#ff0000;font-weight:bold;">基石</span><span class="keyword" style="color:#2000ff;font-weight:bold;">是</span>：
+<span class="keyword" style="color:#ff6000;font-weight:bold;">剩余价值理论</span>
+✅<span class="keyword" style="color:#8000ff;font-weight:bold;">牢二枢纽剩余基</span>{俄国国旗}{直升机}</p>
+pub same? [] 122
+cards with placeholder braces 14
+in html 14

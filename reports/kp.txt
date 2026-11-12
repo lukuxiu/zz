@@ -1,0 +1,114 @@
+122
+{'totalCards': 122, 'uniqueSourceIds': 100, 'duplicateSourceIds': 21, 'needsReviewCount': 122, 'verifiedCount': 0, 'errorCount': 0}
+{
+ "id": "kp-003-01",
+ "sourceId": "003",
+ "subject": "马原",
+ "chapter": "马原",
+ "section": "基本知识",
+ "title": "上层建筑",
+ "rawText": "①政治上层建筑（主导地位）\n政治上层建筑的核心：国家政权\n②观念上层建筑（意识形态）\n在意识形态中居于核心地位，起主导作用的是政治法律思想",
+ "content": "①{{政治上层建筑}}（{{主导地位}}）\n政治上层建筑的{{核心}}：{{国家政权}}\n②{{观念上层建筑}}（{{意识形态}}）\n在意识形态中居于{{核心}}地位，起{{主导}}作用的是{{政治法律思}}{{想}}",
+ "contentHtml": "<p>①<span class=\"keyword\" style=\"color:#2000ff;font-weight:bold;\">政治上层建筑</span>（<span class=\"keyword\" style=\"color:#ff0000;font-weight:bold;\">主导地位</span>）\n政治上层建筑的<span class=\"keyword\" style=\"color:#ff0000;font-weight:bold;\">核心</span>：<span class=\"keyword\" style=\"color:#009fff;font-weight:bold;\">国家政权</span>\n②<span class=\"keyword\" style=\"color:#2000ff;font-weight:bold;\">观念上层建筑</span>（<span class=\"keyword\" style=\"color:#0040ff;font-weight:bold;\">意识形态</span>）\n在意识形态中居于<span class=\"keyword\" style=\"color:#ff0000;font-weight:bold;\">核心</span>地位，起<span class=\"keyword\" style=\"color:#ff0000;font-weight:bold;\">主导</span>作用的是<span class=\"keyword\" style=\"color:#009fff;font-weight:bold;\">政治法律思</span><span class=\"keyword\" style=\"color:#009fff;font-weight:bold;\">想</span></p>",
+ "keywords": [
+  {
+   "word": "政治上层建筑",
+   "color": "#2000ff",
+   "colorInt": 2097407
+  },
+  {
+   "word": "主导地位",
+   "color": "#ff0000",
+   "colorInt": 16711680
+  },
+  {
+   "word": "核心",
+   "color": "#ff0000",
+   "colorInt": 16711680
+  },
+  {
+   "word": "国家政权",
+   "color": "#009fff",
+   "colorInt": 40959
+  },
+  {
+   "word": "观念上层建筑",
+   "color": "#2000ff",
+   "colorInt": 2097407
+  },
+  {
+   "word": "意识形态",
+   "color": "#0040ff",
+   "colorInt": 16639
+  },
+  {
+   "word": "核心",
+   "color": "#ff0000",
+   "colorInt": 16711680
+  },
+  {
+   "word": "主导",
+   "color": "#ff0000",
+   "colorInt": 16711680
+  },
+  {
+   "word": "政治法律思",
+   "color": "#009fff",
+   "colorInt": 40959
+  },
+  {
+   "word": "想",
+   "color": "#009fff",
+   "colorInt": 40959
+  }
+ ],
+ "mnemonics": [],
+ "distinctions": [],
+ "symbols": [
+  {
+   "type": "num",
+   "char": "①",
+   "verdict": null,
+   "desc": "序号一",
+   "hash": "6f654c353441134b957e837160ea5548"
+  },
+  {
+   "type": "num",
+   "char": "②",
+   "verdict": null,
+   "desc": "序号二",
+   "hash": "ab58018ad40da0039698d5e8a56647d9"
+  }
+ ],
+ "sourcePage": [
+  11
+ ],
+ "bookPage": [
+  5
+ ],
+ "occurrences": [
+  {
+   "sourcePage": 11,
+   "bookPage": 5,
+   "region": "left-mid",
+   "bbox": [
+    39.0,
+    464.5,
+    289.1,
+    602.2
+   ]
+  }
+ ],
+ "sourceRegion": [
+  39.0,
+  464.5,
+  289.1,
+  602.2
+ ],
+ "sourceImages": [
+  "source/kp-003-01.png"
+ ],
+ "reviewStatus": "needs-review",
+ "reviewNotes": []
+}
+['id', 'sourceId', 'subject', 'chapter', 'section', 'title', 'rawText', 'content', 'contentHtml', 'keywords', 'mnemonics', 'distinctions', 'symbols', 'sourcePage', 'bookPage', 'occurrences', 'sourceRegion', 'sourceImages', 'reviewStatus', 'reviewNotes']
