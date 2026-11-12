@@ -32,3 +32,9 @@ __pycache__/
 # Backups & scratch files
 *.bak
 scratch/
+
+# Raw study documents & heavy package archives
+*.pdf
+*.docx
+*.marginpkg
+

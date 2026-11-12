@@ -43,6 +43,8 @@ jobs:
 
       - name: Copy standalone releases to dist
         run: |
+          cp -f "2027考研政治一页纸智能背诵与解题刷题全功能发布版.html" dist/ || true
+          cp -f "2027考研政治一页纸智能背诵与刷题精简纯净版.html" dist/ || true
           cp -f zhengz_recite_app.html dist/ || true
           cp -f zhengz_recite_app_lite.html dist/ || true
 
