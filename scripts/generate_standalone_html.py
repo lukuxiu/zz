@@ -1736,7 +1736,57 @@ html_template = """<!DOCTYPE html>
     createApp({
       components: { 'card-viewer-component': CardViewerComponent },
       setup() {
-        const currentTab = ref('browse');
+        const VALID_TABS = ['browse', 'solve', 'recite', 'quiz', 'mistakes', 'home'];
+
+        function parseHash() {
+          try {
+            const rawHash = window.location.hash.replace(/^#\/?/, '');
+            if (!rawHash) return null;
+            const [tabPart, queryPart] = rawHash.split('?');
+            let tab = null;
+            let subTab = 'methods';
+            let cardId = '';
+
+            if (tabPart === 'practice' || tabPart === 'blind' || tabPart === 'mock' || tabPart === 'dashboard' || tabPart === 'solve-mistakes') {
+              tab = 'solve';
+              subTab = tabPart === 'solve-mistakes' ? 'mistakes' : tabPart;
+            } else if (VALID_TABS.includes(tabPart)) {
+              tab = tabPart;
+            }
+
+            if (queryPart) {
+              const params = new URLSearchParams(queryPart);
+              cardId = params.get('card') || '';
+            }
+            return { tab, subTab, cardId };
+          } catch(e) {
+            return null;
+          }
+        }
+
+        function getInitialState() {
+          const fromHash = parseHash();
+          if (fromHash && fromHash.tab) {
+            return {
+              tab: fromHash.tab,
+              subTab: fromHash.subTab || 'methods',
+              cardId: fromHash.cardId || (typeof localStorage !== 'undefined' ? localStorage.getItem('zhengz_last_browse_card') || '' : '')
+            };
+          }
+          let savedTab = 'browse';
+          let savedCardId = '';
+          let savedSubTab = 'methods';
+          try {
+            savedTab = localStorage.getItem('zhengz_active_tab') || 'browse';
+            if (!VALID_TABS.includes(savedTab)) savedTab = 'browse';
+            savedCardId = localStorage.getItem('zhengz_last_browse_card') || '';
+            savedSubTab = localStorage.getItem('solve_active_subtab') || 'methods';
+          } catch(e) {}
+          return { tab: savedTab, subTab: savedSubTab, cardId: savedCardId };
+        }
+
+        const initial = getInitialState();
+        const currentTab = ref(initial.tab);
         const browseClozeMode = ref('none');
         const showImageModal = ref(false);
         const activeImageCard = ref(null);
@@ -1767,11 +1817,56 @@ html_template = """<!DOCTYPE html>
           }));
         }
 
+        function updateUrlAndStorage(tab, cardId = null) {
+          try {
+            localStorage.setItem('zhengz_active_tab', tab);
+            let hash = `#/${tab}`;
+            if (tab === 'browse') {
+              const cId = cardId || currentBrowseCard.value?.id || initial.cardId;
+              if (cId) {
+                hash += `?card=${encodeURIComponent(cId)}`;
+                localStorage.setItem('zhengz_last_browse_card', cId);
+              }
+            } else if (tab === 'solve') {
+              localStorage.setItem('solve_active_subtab', solveSubTab.value);
+            }
+            if (window.location.hash !== hash) {
+              window.history.replaceState(null, '', hash);
+            }
+          } catch(e) {}
+        }
+
+        function handleHashChange() {
+          const state = parseHash();
+          if (state && state.tab && state.tab !== currentTab.value) {
+            currentTab.value = state.tab;
+          }
+          if (state && state.subTab && state.subTab !== solveSubTab.value) {
+            solveSubTab.value = state.subTab;
+          }
+          if (state && state.cardId && currentBrowseCard.value?.id !== state.cardId) {
+            const target = ALL_CARDS.find(c => c.id === state.cardId);
+            if (target) currentBrowseCard.value = target;
+          }
+        }
+
+        watch(currentTab, (newTab) => {
+          updateUrlAndStorage(newTab);
+        });
+
+        watch(solveSubTab, (newSub) => {
+          if (currentTab.value === 'solve') {
+            try {
+              localStorage.setItem('solve_active_subtab', newSub);
+            } catch(e) {}
+          }
+        });
+
 
         const ALL_METHODS = __ALL_METHODS_JSON__;
         const ALL_QUESTIONS = __ALL_QUESTIONS_JSON__;
 
-        const solveSubTab = ref('methods');
+        const solveSubTab = ref(initial.subTab || 'methods');
         const selectedPracticeMethod = ref('all');
         const currentPracticeIndex = ref(0);
         const solveUserAnswers = ref([]);
@@ -1984,10 +2079,21 @@ html_template = """<!DOCTYPE html>
         onMounted(() => {
           loadStorage();
           loadSolveStorage();
-          if (ALL_CARDS.length > 0) {
+          // 页面加载完成后确保设置弹窗严格关闭
+          showSettingsModal.value = false;
+          // 恢复之前浏览的卡片位置
+          if (initial.cardId) {
+            const target = ALL_CARDS.find(c => c.id === initial.cardId);
+            if (target) {
+              currentBrowseCard.value = target;
+            }
+          }
+          if (!currentBrowseCard.value && ALL_CARDS.length > 0) {
             currentBrowseCard.value = ALL_CARDS[0];
           }
           initReciteQueue();
+          updateUrlAndStorage(currentTab.value, currentBrowseCard.value?.id);
+          window.addEventListener('hashchange', handleHashChange);
         });
 
         const isFavorite = (id) => !!userRecords.value[id]?.isFavorite;
@@ -2026,7 +2132,15 @@ html_template = """<!DOCTYPE html>
 
         const searchQuery = ref('');
         const selectedSubject = ref('全部');
-        const currentBrowseCard = ref(ALL_CARDS[0] || null);
+        const currentBrowseCard = ref((initial.cardId && ALL_CARDS.find(c => c.id === initial.cardId)) || ALL_CARDS[0] || null);
+
+        watch(currentBrowseCard, (newCard) => {
+          if (newCard && currentTab.value === 'browse') {
+            try {
+              updateUrlAndStorage('browse', newCard.id);
+            } catch(e) {}
+          }
+        });
 
         const filteredCards = computed(() => {
           const q = searchQuery.value.trim().toLowerCase();
