@@ -55,7 +55,7 @@ html_template = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
-  <title>2027考研政治一页纸 · 智能背诵与刷题 (纯净轻量版)</title>
+  <title>2027考研政治一页纸 · 智能背诵与真题解题刷题全功能发布版</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>">
   __VUE_TAG__
   <style>
@@ -2346,7 +2346,8 @@ html_template = """<!DOCTYPE html>
           updateUrlAndStorage(newTab);
         });
 
-        const currentBrowseCard = ref(ALL_CARDS[0]);
+        const initialCard = (initial.cardId && ALL_CARDS.find(c => c.id === initial.cardId)) || ALL_CARDS[0] || null;
+        const currentBrowseCard = ref(initialCard);
 
         watch(currentBrowseCard, (newCard) => {
           if (newCard && currentTab.value === 'browse') {
@@ -2610,6 +2611,14 @@ html_template = """<!DOCTYPE html>
         onMounted(() => {
           loadStorage();
           loadSolveStorage();
+          showSettingsModal.value = false;
+          if (initial.cardId) {
+            const target = ALL_CARDS.find(c => c.id === initial.cardId);
+            if (target) currentBrowseCard.value = target;
+          }
+          if (!currentBrowseCard.value && ALL_CARDS.length > 0) {
+            currentBrowseCard.value = ALL_CARDS[0];
+          }
           initReciteQueue();
           updateUrlAndStorage(currentTab.value, currentBrowseCard.value?.id);
           window.addEventListener('hashchange', handleHashChange);
@@ -2892,14 +2901,18 @@ final_html = html_template.replace("__VUE_TAG__", vue_tag)\
     .replace("__ALL_MINDSETS_JSON__", mindsets_json_str)\
     .replace("__ALL_IMAGES_JSON__", images_json_str)
 
-output_file = "zhengz_recite_app_lite.html"
-with open(output_file, "w", encoding="utf-8") as f:
-    f.write(final_html)
+output_files = [
+    "2027考研政治一页纸智能背诵与解题刷题全功能发布版.html",
+    "2027考研政治一页纸智能背诵与刷题精简纯净版.html",
+    "zhengz_recite_app.html",
+    "zhengz_recite_app_lite.html",
+    "index.html"
+]
+for out_p in output_files:
+    with open(out_p, "w", encoding="utf-8") as f:
+        f.write(final_html)
+    print(f"  Wrote: {out_p} ({len(final_html.encode('utf-8'))} bytes)")
 
-output_cn = "2027考研政治一页纸智能背诵与刷题精简纯净版.html"
-with open(output_cn, "w", encoding="utf-8") as f:
-    f.write(final_html)
-
-print(f"Generated lite standalone HTML successfully:")
-print(f"  {output_file}: {len(final_html.encode('utf-8'))} bytes ({len(final_html.encode('utf-8')) / (1024*1024):.2f} MB)")
-print(f"  {output_cn}: {len(final_html.encode('utf-8'))} bytes")
+print(f"Generated standalone HTML successfully:")
+for out_p in output_files:
+    print(f"  {out_p}: {len(final_html.encode('utf-8'))} bytes ({len(final_html.encode('utf-8')) / (1024*1024):.2f} MB)")

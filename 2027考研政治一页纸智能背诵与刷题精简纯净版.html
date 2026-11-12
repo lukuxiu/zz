@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
-  <title>2027考研政治一页纸 · 智能背诵与刷题 (纯净轻量版)</title>
+  <title>2027考研政治一页纸 · 智能背诵与真题解题刷题全功能发布版</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>">
   <script>/**
 * vue v3.5.44
@@ -2308,7 +2308,8 @@
           updateUrlAndStorage(newTab);
         });
 
-        const currentBrowseCard = ref(ALL_CARDS[0]);
+        const initialCard = (initial.cardId && ALL_CARDS.find(c => c.id === initial.cardId)) || ALL_CARDS[0] || null;
+        const currentBrowseCard = ref(initialCard);
 
         watch(currentBrowseCard, (newCard) => {
           if (newCard && currentTab.value === 'browse') {
@@ -2572,6 +2573,14 @@
         onMounted(() => {
           loadStorage();
           loadSolveStorage();
+          showSettingsModal.value = false;
+          if (initial.cardId) {
+            const target = ALL_CARDS.find(c => c.id === initial.cardId);
+            if (target) currentBrowseCard.value = target;
+          }
+          if (!currentBrowseCard.value && ALL_CARDS.length > 0) {
+            currentBrowseCard.value = ALL_CARDS[0];
+          }
           initReciteQueue();
           updateUrlAndStorage(currentTab.value, currentBrowseCard.value?.id);
           window.addEventListener('hashchange', handleHashChange);
