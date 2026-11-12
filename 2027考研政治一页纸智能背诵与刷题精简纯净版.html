@@ -468,6 +468,10 @@
     .btn-main { font-size: 14px; font-weight: 700; }
     .btn-sub { font-size: 11px; opacity: 0.85; }
 
+    /* 解决初始加载 FOUC 闪烁与弹窗误显 */
+    [v-cloak] { display: none !important; }
+    template { display: none !important; }
+
     /* 弹窗通用 */
     .modal-overlay {
       position: fixed; inset: 0; background: rgba(31, 29, 26, 0.7); backdrop-filter: blur(4px);
@@ -734,7 +738,7 @@
   </style>
 </head>
 <body>
-  <div id="app">
+  <div id="app" v-cloak>
     <!-- 统一导航 -->
     <nav class="nav-container">
       <div class="nav-brand" @click="currentTab = 'browse'">
@@ -1534,72 +1538,78 @@
     </div>
 
     <!-- 设置与备份弹窗 -->
-    <div v-if="showSettingsModal" class="modal-overlay" @click.self="showSettingsModal = false">
-      <div class="modal-dialog" style="max-width:500px;">
-        <div class="modal-header">
-          <div style="font-weight:bold;">⚙️ 系统设置与数据备份</div>
-          <button style="background:none; font-size:18px;" @click="showSettingsModal = false">✕</button>
-        </div>
-        <div style="padding:20px; display:flex; flex-direction:column; gap:16px;">
-          <div>
-            <div style="font-size:13px; font-weight:bold; margin-bottom:6px;">默认阅读字号：</div>
-            <div style="display:flex; gap:8px;">
-              <button v-for="lvl in ['small', 'medium', 'large', 'xlarge']" :key="lvl"
-                :class="['sub-tab', { active: userSettings.fontSizeLevel === lvl }]"
-                @click="setFontSize(lvl)" style="flex:1; padding:8px; border:1px solid var(--border-card);">
-                {{ lvl }}
+    <template v-if="showSettingsModal">
+      <div class="modal-overlay" @click.self="showSettingsModal = false">
+        <div class="modal-dialog" style="max-width:500px;">
+          <div class="modal-header">
+            <div style="font-weight:bold;">⚙️ 系统设置与数据备份</div>
+            <button style="background:none; font-size:18px;" @click="showSettingsModal = false">✕</button>
+          </div>
+          <div style="padding:20px; display:flex; flex-direction:column; gap:16px;">
+            <div>
+              <div style="font-size:13px; font-weight:bold; margin-bottom:6px;">默认阅读字号：</div>
+              <div style="display:flex; gap:8px;">
+                <button v-for="lvl in ['small', 'medium', 'large', 'xlarge']" :key="lvl"
+                  :class="['sub-tab', { active: userSettings.fontSizeLevel === lvl }]"
+                  @click="setFontSize(lvl)" style="flex:1; padding:8px; border:1px solid var(--border-card);">
+                  {{ lvl }}
+                </button>
+              </div>
+            </div>
+            <hr style="border:none; border-top:1px dashed var(--border-light);">
+            <div>
+              <div style="font-size:13px; font-weight:bold; margin-bottom:6px;">数据备份与导出：</div>
+              <button class="ctrl-btn" style="width:100%; padding:10px; font-weight:bold;" @click="exportDataBackup">
+                📥 导出本地备份 JSON
               </button>
             </div>
           </div>
-          <hr style="border:none; border-top:1px dashed var(--border-light);">
-          <div>
-            <div style="font-size:13px; font-weight:bold; margin-bottom:6px;">数据备份与导出：</div>
-            <button class="ctrl-btn" style="width:100%; padding:10px; font-weight:bold;" @click="exportDataBackup">
-              📥 导出本地备份 JSON
-            </button>
-          </div>
         </div>
       </div>
-    </div>
+    </template>
 
     <!-- 马恩列真题名言避坑弹窗 -->
-    <div v-if="showMarxModal" class="modal-overlay" @click.self="showMarxModal = false">
-      <div class="modal-dialog" style="max-width:700px; max-height:85vh; display:flex; flex-direction:column;">
-        <div class="modal-header">
-          <div style="font-weight:bold; font-size:15px;">📖 马恩列真题原话避坑表</div>
-          <button style="background:none; font-size:18px;" @click="showMarxModal = false">✕</button>
-        </div>
-        <div style="padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px;">
-          <div v-for="(q, idx) in classicMarxQuotes" :key="idx" class="quote-card-std">
-            <div style="font-weight:600; color:var(--text-main); font-size:14px; margin-bottom:6px;">“{{ q.quote }}”</div>
-            <div style="font-size:12px; color:var(--text-muted); margin-bottom:6px;">—— {{ q.author }} · {{ q.context }}</div>
-            <div style="font-size:12px; background:#fff7ed; border-left:3px solid #ea580c; padding:6px 10px; border-radius:4px; color:#9a3412;">
-              <strong>⚠️ 避坑提醒：</strong>{{ q.trapAlert }}
+    <template v-if="showMarxModal">
+      <div class="modal-overlay" @click.self="showMarxModal = false">
+        <div class="modal-dialog" style="max-width:700px; max-height:85vh; display:flex; flex-direction:column;">
+          <div class="modal-header">
+            <div style="font-weight:bold; font-size:15px;">📖 马恩列真题原话避坑表</div>
+            <button style="background:none; font-size:18px;" @click="showMarxModal = false">✕</button>
+          </div>
+          <div style="padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px;">
+            <div v-for="(q, idx) in classicMarxQuotes" :key="idx" class="quote-card-std">
+              <div style="font-weight:600; color:var(--text-main); font-size:14px; margin-bottom:6px;">“{{ q.quote }}”</div>
+              <div style="font-size:12px; color:var(--text-muted); margin-bottom:6px;">—— {{ q.author }} · {{ q.context }}</div>
+              <div style="font-size:12px; background:#fff7ed; border-left:3px solid #ea580c; padding:6px 10px; border-radius:4px; color:#9a3412;">
+                <strong>⚠️ 避坑提醒：</strong>{{ q.trapAlert }}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </template>
 
     <!-- 18大高频墓碑词速查弹窗 -->
-    <div v-if="showTombstoneModal" class="modal-overlay" @click.self="showTombstoneModal = false">
-      <div class="modal-dialog" style="max-width:760px; max-height:85vh; display:flex; flex-direction:column;">
-        <div class="modal-header">
-          <div style="font-weight:bold; font-size:15px;">⚰️ 18 大高频墓碑词敏感雷达</div>
-          <button style="background:none; font-size:18px;" @click="showTombstoneModal = false">✕</button>
-        </div>
-        <div style="padding:16px; overflow-y:auto; display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:10px;">
-          <div v-for="(t, idx) in tombstoneWords" :key="idx" class="tombstone-card-std">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-              <span style="font-weight:bold; font-size:15px; color:#b91c1c;">⚰️ {{ t.word }}</span>
-              <span class="kw-pill" style="background:#fee2e2; color:#991b1b; border-color:#fca5a5;">{{ t.category }}</span>
+    <template v-if="showTombstoneModal">
+      <div class="modal-overlay" @click.self="showTombstoneModal = false">
+        <div class="modal-dialog" style="max-width:760px; max-height:85vh; display:flex; flex-direction:column;">
+          <div class="modal-header">
+            <div style="font-weight:bold; font-size:15px;">⚰️ 18 大高频墓碑词敏感雷达</div>
+            <button style="background:none; font-size:18px;" @click="showTombstoneModal = false">✕</button>
+          </div>
+          <div style="padding:16px; overflow-y:auto; display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:10px;">
+            <div v-for="(t, idx) in tombstoneWords" :key="idx" class="tombstone-card-std">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <span style="font-weight:bold; font-size:15px; color:#b91c1c;">⚰️ {{ t.word }}</span>
+                <span class="kw-pill" style="background:#fee2e2; color:#991b1b; border-color:#fca5a5;">{{ t.category }}</span>
+              </div>
+              <div style="font-size:12px; color:var(--danger-accent); margin-bottom:4px;"><strong>设坑机制：</strong>{{ t.trap }}</div>
+              <div style="font-size:12px; color:var(--success-accent); background:#f0fdf4; padding:4px 8px; border-radius:4px;"><strong>正确表述：</strong>{{ t.correctUsage }}</div>
             </div>
-            <div style="font-size:12px; color:var(--danger-accent); margin-bottom:4px;"><strong>设坑机制：</strong>{{ t.trap }}</div>
-            <div style="font-size:12px; color:var(--success-accent); background:#f0fdf4; padding:4px 8px; border-radius:4px;"><strong>正确表述：</strong>{{ t.correctUsage }}</div>
           </div>
         </div>
       </div>
-    </div>
+    </template>
   </div>
 
   <script>
@@ -2571,9 +2581,11 @@
         }
 
         onMounted(() => {
+          showSettingsModal.value = false;
+          showMarxModal.value = false;
+          showTombstoneModal.value = false;
           loadStorage();
           loadSolveStorage();
-          showSettingsModal.value = false;
           if (initial.cardId) {
             const target = ALL_CARDS.find(c => c.id === initial.cardId);
             if (target) currentBrowseCard.value = target;
