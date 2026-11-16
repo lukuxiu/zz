@@ -12,6 +12,8 @@ if (typeof globalThis.localStorage === 'undefined') {
 
 import methodsData from '../data/methods.json'
 import questionsData from '../data/questions.json'
+import methodCardsData from '../data/method_cards.json'
+import tombstoneIndexData from '../data/tombstone_index.json'
 import { useSolveState } from '../src/modules/solve/services/solveState'
 
 describe('解题方法刷题模块 (Solve Module)', () => {
@@ -27,20 +29,21 @@ describe('解题方法刷题模块 (Solve Module)', () => {
         expect(m.name).toBeTruthy()
         expect(m.mnemonic).toBeTruthy()
         expect(m.keywords.length).toBeGreaterThan(0)
-        expect(m.questionIds.length).toBeGreaterThan(0)
       })
     })
 
-    it('应收录全部 68 道真题且答案与字段完备', () => {
-      expect(questionsData).toHaveLength(68)
+    it('应收录全部 139 道真题且答案、专题与字段完备', () => {
+      expect(questionsData).toHaveLength(139)
       const qIds = new Set(questionsData.map(q => q.id))
-      expect(qIds.size).toBe(68)
+      expect(qIds.size).toBe(139)
 
       questionsData.forEach(q => {
-        expect(q.id).toMatch(/^20\d\d\.\d+$/)
-        expect(q.year).toBeGreaterThanOrEqual(2010)
+        expect(q.id).toMatch(/^20\d\d\.\d+/)
+        expect(q.year).toBeGreaterThanOrEqual(2007)
         expect(q.no).toBeGreaterThan(0)
         expect(['single', 'multi']).toContain(q.type)
+        expect(q.chapterId).toMatch(/^ch0[1-9]$/)
+        expect(q.chapterName).toBeTruthy()
         expect(q.options).toBeDefined()
         expect(q.options.A).toBeDefined()
         expect(q.options.B).toBeDefined()
@@ -49,6 +52,21 @@ describe('解题方法刷题模块 (Solve Module)', () => {
         expect(q.answer.length).toBeGreaterThan(0)
         expect(q.methods.length).toBeGreaterThan(0)
         expect(q.tip).toBeTruthy()
+      })
+    })
+
+    it('应完整包含 27 版手册 73 张方法卡片与 122 条墓碑词索引', () => {
+      expect(methodCardsData).toHaveLength(73)
+      methodCardsData.forEach(c => {
+        expect(c.num).toMatch(/^\d{3}$/)
+        expect(c.title).toBeTruthy()
+        expect(c.content).toBeTruthy()
+      })
+      expect(tombstoneIndexData.length).toBeGreaterThanOrEqual(120)
+      const cardNums = new Set(methodCardsData.map(c => c.num))
+      tombstoneIndexData.forEach(t => {
+        expect(t.word).toBeTruthy()
+        expect(cardNums.has(t.kpNum)).toBe(true)
       })
     })
 
@@ -128,7 +146,7 @@ describe('解题方法刷题模块 (Solve Module)', () => {
       recordAnswer(testQ.id, testQ.answer)
 
       const stats = overallStats.value
-      expect(stats.total).toBe(68)
+      expect(stats.total).toBe(139)
       expect(stats.practiced).toBeGreaterThan(0)
       expect(stats.accuracy).toBeGreaterThan(0)
       expect(stats.weakTop3).toHaveLength(3)

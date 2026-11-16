@@ -41,6 +41,12 @@ with open("data/questions.json", "r", encoding="utf-8") as f:
 with open("data/mindsets.json", "r", encoding="utf-8") as f:
     mindsets_json_str = json.dumps(json.load(f), ensure_ascii=False)
 
+with open("data/method_cards.json", "r", encoding="utf-8") as f:
+    method_cards_json_str = json.dumps(json.load(f), ensure_ascii=False)
+
+with open("data/tombstone_index.json", "r", encoding="utf-8") as f:
+    tombstone_index_json_str = json.dumps(json.load(f), ensure_ascii=False)
+
 vue_js_path = "node_modules/vue/dist/vue.global.prod.js"
 if os.path.exists(vue_js_path):
     with open(vue_js_path, "r", encoding="utf-8") as f:
@@ -773,6 +779,41 @@ html_template = """<!DOCTYPE html>
     .trap-insight-box { background: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #d97706; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
     .deep-traps-box { background: #fef2f2; border: 1px solid #fecaca; border-left: 4px solid #ef4444; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
     .guidance-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 4px solid #16a34a; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+
+    /* 27版解题方法手册与专题刷题增强样式 */
+    .ts-hit {
+      background: #fee2e2; color: #991b1b; border-bottom: 1.5px dashed #dc2626;
+      padding: 0 3px; border-radius: 3px; font-weight: 700; cursor: pointer;
+    }
+    .ts-hit:hover { background: #fecaca; }
+    .method-kp-card {
+      background: #fff; border: 1px solid var(--border-card); border-radius: 12px;
+      padding: 16px; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--shadow-sm);
+    }
+    .method-kp-badge {
+      display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px;
+      border-radius: 99px; background: var(--primary-accent-bg); color: var(--primary-accent);
+    }
+    .q-sheet-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 6px;
+    }
+    .q-sheet-dot {
+      height: 36px; border-radius: 8px; font-size: 12px; font-weight: 700;
+      border: 1px solid var(--border-card); background: #fff; color: var(--text-main);
+      display: flex; align-items: center; justify-content: center; position: relative;
+    }
+    .q-sheet-dot.active { border: 2px solid var(--primary-accent); background: var(--primary-accent-bg); color: var(--primary-accent); }
+    .q-sheet-dot.done-ok { background: #dcfce7; border-color: #86efac; color: #166534; }
+    .q-sheet-dot.done-err { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+    .q-sheet-dot.answered { background: #e0f2fe; border-color: #7dd3fc; color: #0369a1; }
+    .q-sheet-dot.flagged::after { content: "🚩"; position: absolute; top: -4px; right: -4px; font-size: 10px; }
+    @media (max-width: 640px) {
+      .solve-mobile-bar {
+        position: sticky; bottom: 8px; z-index: 30; background: rgba(255,255,255,0.96);
+        backdrop-filter: blur(8px); border: 1px solid var(--border-card); border-radius: 12px;
+        padding: 8px 10px; box-shadow: var(--shadow-md);
+      }
+    }
   </style>
 </head>
 <body>
@@ -1083,493 +1124,482 @@ html_template = """<!DOCTYPE html>
       </div>
     </div>
 
-    <!-- 解题方法刷题模块 -->
+    <!-- 解题方法刷题模块 (精简三栏：方法 / 专题刷题 / 错题与复盘) -->
     <div v-else-if="currentTab === 'solve'" class="page-container">
-      <!-- 刷题二级导航 -->
+      <!-- 刷题二级导航（精简3栏） -->
       <div class="solve-sub-nav">
-        <button :class="['sub-pill', { active: solveSubTab === 'methods' }]" @click="solveSubTab = 'methods'">🎯 方法库</button>
-        <button :class="['sub-pill', { active: solveSubTab === 'practice' }]" @click="solveSubTab = 'practice'">📝 分类刷题</button>
-        <button :class="['sub-pill', { active: solveSubTab === 'blind' }]" @click="solveSubTab = 'blind'">👁️ 盲测识坑</button>
-        <button :class="['sub-pill', { active: solveSubTab === 'mock' }]" @click="solveSubTab = 'mock'">⏱️ 限时模考</button>
-        <button :class="['sub-pill', { active: solveSubTab === 'dashboard' }]" @click="solveSubTab = 'dashboard'">📊 统计看板</button>
+        <button :class="['sub-pill', { active: solveSubTab === 'methods' }]" @click="solveSubTab = 'methods'">🎯 解题方法</button>
+        <button :class="['sub-pill', { active: solveSubTab === 'practice' }]" @click="solveSubTab = 'practice'">📝 专题刷题</button>
         <button :class="['sub-pill', { active: solveSubTab === 'mistakes' }]" @click="solveSubTab = 'mistakes'">
-          📕 错题本 <span v-if="solveMistakeCount > 0">({{ solveMistakeCount }})</span>
+          📕 错题与复盘 <span v-if="solveMistakeCount > 0">({{ solveMistakeCount }})</span>
         </button>
       </div>
 
-      <!-- 1. 方法库与思维模式 -->
-      <div v-if="solveSubTab === 'methods'">
-        <div class="welcome-card" style="margin-top:12px;">
-          <h2 style="font-size:18px;">🎯 老头命题手法（挖坑点）与四大解题思维模式</h2>
-          <p style="font-size:13px; color:var(--text-muted); margin-top:4px;">澄潇宇 · 政治选择题一页纸：掌握 10 类命题套路、4 大黄金解题思维模式、马恩真题名言与 18 大墓碑词</p>
-          
-          <div class="mindset-nav-tabs">
-            <button :class="['sub-pill', { active: methodsActiveTab === 'methods' }]" @click="methodsActiveTab = 'methods'">
-              🎯 10 类命题挖坑手法 ({{ ALL_METHODS.length }})
-            </button>
-            <button :class="['sub-pill', { active: methodsActiveTab === 'mindset' }]" @click="methodsActiveTab = 'mindset'">
-              ⚡ 四大解题思维模式 (必背心法)
-            </button>
-            <button :class="['sub-pill', { active: methodsActiveTab === 'quotes' }]" @click="methodsActiveTab = 'quotes'">
-              📖 马恩列真题名言避坑 ({{ classicMarxQuotes.length }})
+      <!-- ==================== 1. 解题方法 (73张卡片 + 122墓碑词 + 心法名言) ==================== -->
+      <div v-if="solveSubTab === 'methods'" style="margin-top:12px; display:flex; flex-direction:column; gap:12px;">
+        <div class="welcome-card" style="padding:16px;">
+          <h2 style="font-size:17px;">🎯 27版解题方法手册 · 73讲与墓碑词雷达</h2>
+          <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+            系统收录《解题方法手册》73 张方法卡片、122 个高频墓碑词索引、四大心法与马恩经典原话避坑表
+          </p>
+          <div class="mindset-nav-tabs" style="margin-top:10px;">
+            <button :class="['sub-pill', { active: methodsActiveTab === 'cards' }]" @click="methodsActiveTab = 'cards'">
+              📖 73张方法卡片 ({{ ALL_METHOD_CARDS.length }})
             </button>
             <button :class="['sub-pill', { active: methodsActiveTab === 'tombstones' }]" @click="methodsActiveTab = 'tombstones'">
-              ⚰️ 18 大高频墓碑词雷达
+              ⚰️ 墓碑词雷达 ({{ ALL_TOMBSTONE_INDEX.length }})
+            </button>
+            <button :class="['sub-pill', { active: methodsActiveTab === 'mindset' }]" @click="methodsActiveTab = 'mindset'">
+              ⚡ 心法与马恩原话
             </button>
           </div>
         </div>
 
-        <!-- 子选项卡 1：10 类命题手法 -->
-        <div v-if="methodsActiveTab === 'methods'" class="methods-grid-std">
-          <div v-for="m in ALL_METHODS" :key="m.id" class="method-card-std">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-size:16px; font-weight:bold; color:var(--text-main);">{{ m.name }}</span>
-              <span style="font-size:12px; color:var(--text-muted);">{{ m.questionIds.length }} 题</span>
-            </div>
-            <div class="mnemonic-box">💡 口诀：{{ m.mnemonic }}</div>
-            <div style="display:flex; flex-wrap:wrap; gap:4px;">
-              <span v-for="kw in m.keywords" :key="kw" class="kw-pill">{{ kw }}</span>
-            </div>
-            <div style="font-size:12px; color:var(--text-muted);">{{ m.description }}</div>
-            
-            <!-- 详细挖坑套路 -->
-            <div v-if="m.trapsBreakdown && m.trapsBreakdown.length" style="background:#fef7f7; border-left:3px solid #ef4444; padding:8px 10px; border-radius:4px; font-size:12px;">
-              <div style="font-weight:bold; color:#b91c1c; margin-bottom:4px;">⚠️ 设坑套路剖析：</div>
-              <ul style="padding-left:16px; color:#4b5563; line-height:1.5; margin:0;">
-                <li v-for="(t, tIdx) in m.trapsBreakdown" :key="tIdx">{{ t }}</li>
-              </ul>
-            </div>
-
-            <!-- 特别注意 -->
-            <div v-if="m.specialNotes" style="background:#fffbeb; border-left:3px solid #f59e0b; padding:6px 10px; border-radius:4px; font-size:12px; color:#92400e;">
-              📌 <strong>防坑要诀：</strong>{{ m.specialNotes }}
-            </div>
-
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:auto; padding-top:8px; border-top:1px dashed var(--border-light);">
-              <span style="font-size:12px; color:var(--text-muted);">掌握度: {{ getMethodStatStd(m.id).accuracy }}% ({{ getMethodStatStd(m.id).practiced }}/{{ m.questionIds.length }})</span>
-              <button class="ctrl-btn" style="background:var(--primary-accent-bg); color:var(--primary-accent); font-weight:600; padding:6px 14px;" @click="startPracticeMethod(m.id)">
-                开始刷题 →
+        <!-- 子视图 A：73张方法卡片 -->
+        <div v-if="methodsActiveTab === 'cards'" style="display:flex; flex-direction:column; gap:10px;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; background:#fff; padding:10px 12px; border-radius:10px; border:1px solid var(--border-card);">
+            <input v-model="methodCardQuery" type="text" placeholder="🔍 搜索方法编号或关键词（如：绝对、取代、041）..."
+              style="flex:1; min-width:180px; padding:7px 10px; border:1px solid var(--border-card); border-radius:8px; font-size:13px;">
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button v-for="cat in ['all', '高正确率解题思维', '出题老头命题手法', '墓碑词']" :key="cat"
+                :class="['sub-pill', { active: methodCardCategory === cat }]"
+                @click="methodCardCategory = cat" style="font-size:12px; padding:4px 10px;">
+                {{ cat === 'all' ? '全部' : cat }}
               </button>
             </div>
           </div>
-        </div>
 
-        <!-- 子选项卡 2：四大解题思维模式 -->
-        <div v-else-if="methodsActiveTab === 'mindset'" class="mindset-grid-std">
-          <div v-for="item in mindsetPrinciples" :key="item.id" class="mindset-card-std">
-            <div class="mindset-item-top">
-              <span class="mindset-num-icon">{{ item.num }}</span>
-              <div>
-                <span class="mindset-badge-tag">{{ item.tag }}</span>
-                <h4 class="mindset-item-title">{{ item.title }}</h4>
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(310px, 1fr)); gap:12px;">
+            <div v-for="mc in filteredMethodCards" :key="mc.id" class="method-kp-card">
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+                <span class="method-kp-badge">知识点 {{ mc.num }}</span>
+                <span style="font-size:11px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ mc.breadcrumb }}</span>
               </div>
+              <div style="font-size:16px; font-weight:800; color:var(--text-main);">{{ mc.title }}</div>
+              <div style="font-size:13px; color:var(--text-regular); white-space:pre-line; line-height:1.65;">{{ mc.content }}</div>
             </div>
-            <div class="mindset-item-summary">{{ item.summary }}</div>
-            <ul class="mindset-details-list">
-              <li v-for="(d, dIdx) in item.details" :key="dIdx">{{ d }}</li>
-            </ul>
           </div>
         </div>
 
-        <!-- 子选项卡 3：马恩列原话避坑表 -->
-        <div v-else-if="methodsActiveTab === 'quotes'" style="margin-top:14px; display:flex; flex-direction:column; gap:12px;">
-          <div style="background:#fff; border:1px solid var(--border-card); border-radius:10px; padding:14px; font-size:13px; color:var(--text-muted);">
-            📌 命题人常引用马恩列斯原话作为选项，考生极易因“读不懂”而当成错项盲目排除。以下均为真题考查过的经典原话，表述完全正确：
+        <!-- 子视图 B：122个墓碑词敏感雷达索引 -->
+        <div v-else-if="methodsActiveTab === 'tombstones'" style="display:flex; flex-direction:column; gap:10px;">
+          <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:12px; font-size:13px; color:#991b1b;">
+            ⚠️ <strong>墓碑词 ≠ 一定错，墓碑词为高风险词，优先警惕！</strong> 点击任意词条可直接回看对应「知识点」详解卡片。
           </div>
+          <input v-model="tombstoneQuery" type="text" placeholder="🔍 快速检索墓碑词（如：唯一、取代、已经、盟友）..."
+            style="width:100%; padding:8px 12px; border:1px solid var(--border-card); border-radius:8px; font-size:13px; background:#fff;">
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px;">
+            <button v-for="(t, idx) in filteredTombstones" :key="idx"
+              @click="openMethodCardByNum(t.kpNum)"
+              style="background:#fff; border:1px solid var(--border-card); border-radius:8px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center; text-align:left;">
+              <span style="font-weight:700; font-size:14px; color:#b91c1c;">⚰️ {{ t.word }}</span>
+              <span style="font-size:11px; color:var(--primary-accent); background:var(--primary-accent-bg); padding:2px 6px; border-radius:4px;">{{ t.kpNum }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 子视图 C：四大心法 & 马恩原话 -->
+        <div v-else-if="methodsActiveTab === 'mindset'" style="display:flex; flex-direction:column; gap:14px;">
+          <div class="mindset-grid-std">
+            <div v-for="item in mindsetPrinciples" :key="item.id" class="mindset-card-std">
+              <div class="mindset-item-top">
+                <span class="mindset-num-icon">{{ item.num }}</span>
+                <div>
+                  <span class="mindset-badge-tag">{{ item.tag }}</span>
+                  <h4 class="mindset-item-title">{{ item.title }}</h4>
+                </div>
+              </div>
+              <div class="mindset-item-summary">{{ item.summary }}</div>
+              <ul class="mindset-details-list">
+                <li v-for="(d, dIdx) in item.details" :key="dIdx">{{ d }}</li>
+              </ul>
+            </div>
+          </div>
+
+          <div style="font-weight:800; font-size:15px; margin-top:4px;">📖 马恩列经典原话避坑表（表述完全正确，切勿因生涩盲排）</div>
           <div class="methods-grid-std" style="margin-top:0;">
             <div v-for="(q, qIdx) in classicMarxQuotes" :key="qIdx" class="quote-card-std">
               <div class="quote-text-std">“{{ q.quote }}”</div>
-              <div class="quote-meta-std">
-                <span>—— {{ q.author }}</span>
-                <span>📌 {{ q.context }}</span>
-              </div>
-              <div class="quote-alert-std">
-                <strong>⚠️ 易错点分析：</strong>{{ q.trapAlert }}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 子选项卡 4：18 大高频墓碑词雷达 -->
-        <div v-else-if="methodsActiveTab === 'tombstones'" style="margin-top:14px;">
-          <div style="background:#fff; border:1px solid var(--border-card); border-radius:10px; padding:14px; font-size:13px; color:var(--text-muted);">
-            ⚰️ 命题人极喜欢在特定敏感词上做文章。单列为专项雷达，遇到这些词立刻启动怀疑反思：
-          </div>
-          <div class="tombstones-grid-std">
-            <div v-for="(t, tIdx) in tombstoneWords" :key="tIdx" class="tombstone-card-std">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-weight:bold; font-size:15px; color:#b91c1c;">⚰️ {{ t.word }}</span>
-                <span class="kw-pill" style="background:#fee2e2; color:#991b1b; border-color:#fca5a5;">{{ t.category }}</span>
-              </div>
-              <div style="font-size:12px; color:var(--danger-accent); margin-top:4px;">
-                <strong>设坑机制：</strong>{{ t.trap }}
-              </div>
-              <div style="font-size:12px; color:var(--success-accent); background:#f0fdf4; padding:4px 8px; border-radius:4px; margin-top:2px;">
-                <strong>正确表述：</strong>{{ t.correctUsage }}
-              </div>
+              <div class="quote-meta-std"><span>—— {{ q.author }}</span><span>📌 {{ q.context }}</span></div>
+              <div class="quote-alert-std"><strong>⚠️ 易错点分析：</strong>{{ q.trapAlert }}</div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 2. 分类刷题 -->
-      <div v-else-if="solveSubTab === 'practice'" style="margin-top:12px; display:flex; flex-direction:column; gap:14px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; background:#fff; padding:10px 16px; border-radius:10px; border:1px solid var(--border-card); flex-wrap:wrap; gap:8px;">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span style="font-size:13px; font-weight:bold;">筛选分类：</span>
-            <select v-model="selectedPracticeMethod" @change="currentPracticeIndex = 0; solveUserAnswers = []; isSolveSubmitted = false;" style="padding:6px 10px; border-radius:6px; border:1px solid var(--border-card); background:#fff; font-size:13px;">
-              <option value="all">全部题目 ({{ ALL_QUESTIONS.length }})</option>
-              <option v-for="m in ALL_METHODS" :key="m.id" :value="m.id">{{ m.name }} ({{ m.questionIds.length }})</option>
-            </select>
+      <!-- ==================== 2. 专题刷题 (9大专题精练 + 盲测 + 全真模考) ==================== -->
+      <div v-else-if="solveSubTab === 'practice'" style="margin-top:12px; display:flex; flex-direction:column; gap:12px;">
+        <!-- 顶部分栏切换：专题精练 vs 全真模考 -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; background:#fff; padding:10px 14px; border-radius:10px; border:1px solid var(--border-card);">
+          <div style="display:flex; gap:6px;">
+            <button :class="['sub-pill', { active: practiceMode === 'chapter' }]" @click="practiceMode = 'chapter'">📚 九大专题精练</button>
+            <button :class="['sub-pill', { active: practiceMode === 'mock' }]" @click="practiceMode = 'mock'">⏱️ 全真限时模考</button>
           </div>
-          <span style="font-size:13px; font-weight:bold; color:var(--text-muted);" v-if="currentPracticeQ">
-            第 {{ currentPracticeIndex + 1 }} / {{ filteredSolveQuestions.length }} 题
-          </span>
+          <div v-if="practiceMode === 'chapter'" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <label style="font-size:12px; display:flex; align-items:center; gap:4px; cursor:pointer; color:var(--text-regular);">
+              <input type="checkbox" v-model="isBlindMode"> 👁️ 盲测(隐藏专题)
+            </label>
+            <button class="ctrl-btn" style="font-size:12px; padding:4px 10px;" @click="shufflePracticePool">🔀 乱序</button>
+          </div>
         </div>
 
-        <div v-if="currentPracticeQ" style="background:#fff; border:1px solid var(--border-card); border-radius:12px; padding:20px; display:flex; flex-direction:column; gap:14px;">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div style="display:flex; gap:6px; align-items:center;">
-              <span class="source-id-tag">{{ currentPracticeQ.year }}年第{{ currentPracticeQ.no }}题</span>
-              <span :class="['type-badge', currentPracticeQ.type === 'single' ? 'single-badge' : 'multi-badge']">
-                {{ currentPracticeQ.type === 'single' ? '单选题' : '多选题' }}
-              </span>
+        <!-- 模式 A：九大专题精练 -->
+        <template v-if="practiceMode === 'chapter'">
+          <!-- 筛选条 -->
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; background:#fff; padding:10px 14px; border-radius:10px; border:1px solid var(--border-card);">
+            <select v-model="selectedPracticeChapter" @change="resetPracticeCursor"
+              style="flex:1; min-width:160px; padding:6px 10px; border-radius:6px; border:1px solid var(--border-card); background:#fff; font-size:13px; font-weight:600;">
+              <option value="all">全部专题 ({{ ALL_QUESTIONS.length }} 题)</option>
+              <option v-for="ch in CHAPTER_LIST" :key="ch.id" :value="ch.id">
+                {{ ch.label }} ({{ getChapterCount(ch.id) }} 题)
+              </option>
+            </select>
+            <select v-model="selectedQuestionFilter" @change="resetPracticeCursor"
+              style="padding:6px 10px; border-radius:6px; border:1px solid var(--border-card); background:#fff; font-size:13px;">
+              <option value="all">全部题型/状态</option>
+              <option value="unpracticed">仅看未做</option>
+              <option value="single">仅单选题</option>
+              <option value="multi">仅多选题</option>
+              <option value="mistakes">仅错题本</option>
+            </select>
+            <button v-if="filteredSolveQuestions.length > 0" class="ctrl-btn" style="font-size:12px; padding:6px 10px; font-weight:bold;"
+              @click="showPracticeSheet = !showPracticeSheet">
+              📋 答题卡 {{ currentPracticeIndex + 1 }}/{{ filteredSolveQuestions.length }}
+            </button>
+          </div>
+
+          <!-- 展开的答题卡 -->
+          <div v-if="showPracticeSheet && filteredSolveQuestions.length > 0" style="background:#fff; border:1px solid var(--border-card); border-radius:10px; padding:12px;">
+            <div style="font-size:12px; font-weight:bold; margin-bottom:8px; color:var(--text-muted);">点击题号快速跳转：</div>
+            <div class="q-sheet-grid">
+              <button v-for="(q, idx) in filteredSolveQuestions" :key="q.id"
+                @click="jumpPracticeTo(idx)"
+                :class="['q-sheet-dot', {
+                  active: idx === currentPracticeIndex,
+                  'done-ok': solveRecords[q.id]?.history?.length && solveRecords[q.id].history[solveRecords[q.id].history.length - 1].isCorrect,
+                  'done-err': solveRecords[q.id]?.history?.length && !solveRecords[q.id].history[solveRecords[q.id].history.length - 1].isCorrect
+                }]">
+                {{ idx + 1 }}
+              </button>
             </div>
-            <div style="display:flex; gap:8px;">
+          </div>
+
+          <div v-if="filteredSolveQuestions.length === 0" style="background:#fff; padding:36px; border-radius:12px; text-align:center; color:var(--text-muted); border:1px dashed var(--border-card);">
+            当前筛选条件下暂无题目，请切换其他专题或筛选条件。
+          </div>
+
+          <!-- 当前题目卡片 -->
+          <div v-else-if="currentPracticeQ" style="background:#fff; border:1px solid var(--border-card); border-radius:12px; padding:18px; display:flex; flex-direction:column; gap:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+              <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                <span v-if="currentPracticeQ.exerciseNo" class="source-id-tag">习题{{ currentPracticeQ.exerciseNo }}</span>
+                <span class="source-id-tag" style="background:#f3f4f6; color:#374151;">{{ currentPracticeQ.year }}年第{{ currentPracticeQ.no }}题</span>
+                <span :class="['type-badge', currentPracticeQ.type === 'single' ? 'single-badge' : 'multi-badge']">
+                  {{ currentPracticeQ.type === 'single' ? '单选题' : '多选题' }}
+                </span>
+                <span v-if="!isBlindMode" class="kw-pill" style="background:#eef4fb; color:#2e6297; border-color:#bfdbfe;">
+                  {{ currentPracticeQ.chapterName }}
+                </span>
+              </div>
               <button class="ctrl-btn" :style="isSolveMistake(currentPracticeQ.id) ? 'background:#fde8e8; color:#c53030;' : ''" @click="toggleSolveMistake(currentPracticeQ.id)">
                 {{ isSolveMistake(currentPracticeQ.id) ? '★ 已入错题' : '☆ 收藏错题' }}
               </button>
             </div>
-          </div>
 
-          <div style="font-size:15px; font-weight:600; line-height:1.7; color:var(--text-main);">
-            {{ currentPracticeQ.stem }}
-          </div>
-
-          <!-- 💡 破题思维模式锦囊快捷条 -->
-          <div class="mindset-strip-bar" @click="showMindsetBanner = !showMindsetBanner">
-            <div class="mindset-strip-left">
-              <span>⚡</span>
-              <span>
-                <strong>{{ currentPracticeQ.type === 'single' ? '单选题思维心法' : '多选题思维心法' }}：</strong>
-                {{ currentPracticeQ.type === 'single' ? '三项解题法 · 圈定题干核心提问，找意思相近或相同词选项' : '核心用排除法 · 明显错才排 · 其余疑罪从无全选 · 马哲题不全选' }}
-              </span>
+            <div style="font-size:15px; font-weight:600; line-height:1.75; color:var(--text-main);">
+              {{ currentPracticeQ.stem }}
             </div>
-            <button class="mindset-strip-btn">
-              {{ showMindsetBanner ? '收起 ▴' : '速查四大心法 ▾' }}
-            </button>
-          </div>
 
-          <!-- 展开的思维心法微型卡 -->
-          <div v-if="showMindsetBanner" style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:12px; display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:10px;">
-            <div v-for="item in mindsetPrinciples" :key="item.id" style="font-size:12px;">
-              <div style="font-weight:bold; color:#1e293b;">{{ item.num }} {{ item.title }}</div>
-              <div style="color:#64748b; margin-top:2px;">{{ item.summary }}</div>
-            </div>
-          </div>
-
-          <!-- 选项列表 -->
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            <div v-for="(txt, key) in currentPracticeQ.options" :key="key"
-              :class="['opt-std-item', 
-                { 
+            <!-- 选项列表（交卷后自动高亮命中的墓碑词，点击高亮词可打开知识点卡） -->
+            <div style="display:flex; flex-direction:column; gap:8px;" @click="handleTombstoneClick($event)">
+              <div v-for="(txt, key) in currentPracticeQ.options" :key="key"
+                :class="['opt-std-item', {
                   'selected': solveUserAnswers.includes(key),
                   'correct-rev': isSolveSubmitted && currentPracticeQ.answer.includes(key),
                   'wrong-rev': isSolveSubmitted && solveUserAnswers.includes(key) && !currentPracticeQ.answer.includes(key)
                 }]"
-              @click="toggleSolveOption(key)">
-              <div class="opt-bubble-std">{{ key }}</div>
-              <div style="font-size:14px; line-height:1.6; color:var(--text-main); flex:1;">{{ txt }}</div>
-            </div>
-          </div>
-
-          <!-- 操作与提交 -->
-          <div v-if="!isSolveSubmitted" style="display:flex; justify-content:flex-end;">
-            <button class="ctrl-btn" style="background:var(--primary-accent); color:#fff; font-weight:bold; padding:10px 24px;"
-              :disabled="solveUserAnswers.length === 0" @click="submitSolvePractice">
-              提交答案
-            </button>
-          </div>
-
-          <!-- 结果与解析 -->
-          <div v-else style="background:var(--bg-warm); border-radius:10px; padding:16px; display:flex; flex-direction:column; gap:12px;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <div style="font-weight:bold; font-size:15px;" :style="{ color: isSolveCorrect ? 'var(--success-accent)' : 'var(--danger-accent)' }">
-                {{ isSolveCorrect ? '🎉 回答正确！' : '❌ 回答错误' }}
-                <span style="color:var(--text-main); margin-left:8px; font-size:14px;">正确答案：{{ currentPracticeQ.answer.join('') }}</span>
-              </div>
-              <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                <span v-for="m in currentPracticeQ.methods" :key="m" class="hit-tag-std">
-                  🎯 命中手法：{{ getMethodName(m) }}
-                </span>
-              </div>
-            </div>
-
-            <!-- 1. 考场识坑点睛与排雷分析 -->
-            <div v-if="currentPracticeQ.trapReason || (currentPracticeQ.trapOptions && currentPracticeQ.trapOptions.length)" class="trap-insight-box">
-              <div style="font-weight:bold; color:#b45309; display:flex; align-items:center; gap:4px;">
-                <span>⚡</span>
-                <span>考场识坑点睛与排雷分析</span>
-              </div>
-              <div v-if="currentPracticeQ.trapOptions && currentPracticeQ.trapOptions.length" style="display:flex; gap:6px; align-items:center;">
-                <span style="color:#78350f; font-weight:600;">⚠️ 命题干扰项：</span>
-                <span v-for="tOpt in currentPracticeQ.trapOptions" :key="tOpt" class="kw-pill" style="background:#fee2e2; color:#991b1b; border-color:#fca5a5;">选项 {{ tOpt }}</span>
-              </div>
-              <div v-if="currentPracticeQ.identKeywords && currentPracticeQ.identKeywords.length" style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-                <span style="color:#78350f; font-weight:600;">🎯 破题识别关键词：</span>
-                <span v-for="kw in currentPracticeQ.identKeywords" :key="kw" class="kw-pill">{{ kw }}</span>
-              </div>
-              <div v-if="currentPracticeQ.trapReason" style="color:#92400e; line-height:1.6;">
-                <strong>破题要诀：</strong>{{ currentPracticeQ.trapReason }}
-              </div>
-            </div>
-
-            <!-- 2. 一页纸原版破题批注 -->
-            <div class="tip-box-std">
-              <div style="font-weight:bold; margin-bottom:4px; color:#874900;">澄潇宇「一页纸」原版破题批注：</div>
-              <div style="white-space:pre-line; line-height:1.6;">{{ currentPracticeQ.tip || '暂无详细提示' }}</div>
-            </div>
-
-            <!-- 3. 老头命题套路深度剖析 -->
-            <div v-if="getMethodObj(currentPracticeQ.methods[0])" class="deep-traps-box">
-              <div style="font-weight:bold; color:#b91c1c; display:flex; align-items:center; gap:4px;">
-                <span>🎯</span>
-                <span>老头命题挖坑套路剖析 · {{ getMethodObj(currentPracticeQ.methods[0]).name }}</span>
-              </div>
-              <div style="color:#7f1d1d;">
-                🗣️ <strong>口诀：</strong>{{ getMethodObj(currentPracticeQ.methods[0]).mnemonic }}
-              </div>
-              <div v-if="getMethodObj(currentPracticeQ.methods[0]).trapsBreakdown && getMethodObj(currentPracticeQ.methods[0]).trapsBreakdown.length">
-                <div style="font-weight:600; color:#991b1b; margin-bottom:2px;">⚠️ 常见挖坑设伏机制：</div>
-                <ul style="padding-left:16px; color:#374151; line-height:1.5; margin:0;">
-                  <li v-for="(t, idx) in getMethodObj(currentPracticeQ.methods[0]).trapsBreakdown" :key="idx">{{ t }}</li>
-                </ul>
-              </div>
-              <div v-if="getMethodObj(currentPracticeQ.methods[0]).specialNotes" style="color:#92400e; margin-top:2px;">
-                📌 <strong>防坑要诀：</strong>{{ getMethodObj(currentPracticeQ.methods[0]).specialNotes }}
-              </div>
-            </div>
-
-            <!-- 4. 解题思维模式落地指导 -->
-            <div class="guidance-box">
-              <div style="font-weight:bold; color:#15803d; display:flex; align-items:center; gap:4px;">
-                <span>⚡</span>
-                <span>解题思维模式落地复盘</span>
-              </div>
-              <div style="color:#166534; line-height:1.6;">
-                <strong>{{ currentPracticeQ.type === 'single' ? '单选题思维心法：' : '多选题思维心法：' }}</strong>
-                {{ currentPracticeQ.type === 'single' 
-                  ? '【三项解题法 & 排除法】对于时政与生疏单选题，先抓题干核心关键词与设问角度，优先排除具有绝对极端词或与材料不合的选项，寻找与材料意思最契合的选项。' 
-                  : '【多选疑罪从无】核心采用排除法，明显错才算错（抓到违背常识规律、绝对极端、时态颠倒、答非所问证据），拿不准的坚持疑罪从无全选上！若为马原题（尤其是马哲），切忌盲目全选。' }}
-              </div>
-              <div style="display:flex; gap:8px; margin-top:4px; flex-wrap:wrap;">
-                <button class="ctrl-btn" style="background:#e0f2fe; color:#0369a1; padding:4px 10px; font-size:12px;" @click="showMarxModal = true">📖 查看马恩列名言避坑表</button>
-                <button class="ctrl-btn" style="background:#fee2e2; color:#991b1b; padding:4px 10px; font-size:12px;" @click="showTombstoneModal = true">⚰️ 查看18大墓碑词雷达</button>
-              </div>
-            </div>
-
-            <div style="text-align:center;">
-              <div style="font-size:12px; color:var(--text-muted); margin-bottom:6px;">SRS 掌握度自评：</div>
-              <div class="eval-buttons" style="max-width:500px; margin:0 auto;">
-                <button class="eval-btn btn-again" @click="gradeSolveSRS('again', true)"><span class="btn-main">生疏 (重做)</span></button>
-                <button class="eval-btn btn-hard" @click="gradeSolveSRS('hard', true)"><span class="btn-main">模糊 (重做)</span></button>
-                <button class="eval-btn btn-good" @click="gradeSolveSRS('good', true)"><span class="btn-main">掌握 (下一题)</span></button>
-                <button class="eval-btn btn-easy" @click="gradeSolveSRS('easy', true)"><span class="btn-main">熟练 (下一题)</span></button>
-              </div>
-            </div>
-          </div>
-
-          <!-- 上下题切换 -->
-          <div style="display:flex; justify-content:space-between; margin-top:8px;">
-            <button class="ctrl-btn" :disabled="currentPracticeIndex === 0" @click="currentPracticeIndex--; solveUserAnswers = []; isSolveSubmitted = false;">
-              ← 上一题
-            </button>
-            <button class="ctrl-btn" :disabled="currentPracticeIndex >= filteredSolveQuestions.length - 1" @click="currentPracticeIndex++; solveUserAnswers = []; isSolveSubmitted = false;">
-              下一题 →
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 3. 盲测识坑 -->
-      <div v-else-if="solveSubTab === 'blind'" style="margin-top:12px; display:flex; flex-direction:column; gap:14px;">
-        <div class="welcome-card">
-          <h2 style="font-size:18px;">👁️ 盲测识坑模式</h2>
-          <p style="font-size:13px; color:var(--text-muted); margin-top:2px;">不预设分类，先做题再判断出题人用了什么「套路」，锻炼真题考场识坑眼力！</p>
-        </div>
-
-        <div v-if="currentBlindQ" style="background:#fff; border:1px solid var(--border-card); border-radius:12px; padding:20px; display:flex; flex-direction:column; gap:14px;">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span class="source-id-tag">{{ currentBlindQ.year }}年第{{ currentBlindQ.no }}题</span>
-            <span :class="['type-badge', currentBlindQ.type === 'single' ? 'single-badge' : 'multi-badge']">
-              {{ currentBlindQ.type === 'single' ? '单选题' : '多选题' }}
-            </span>
-          </div>
-
-          <div style="font-size:15px; font-weight:600; line-height:1.7;">{{ currentBlindQ.stem }}</div>
-
-          <!-- 选项 -->
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            <div v-for="(txt, key) in currentBlindQ.options" :key="key"
-              :class="['opt-std-item', { selected: blindUserAnswers.includes(key) }]"
-              @click="toggleBlindOption(key)">
-              <div class="opt-bubble-std">{{ key }}</div>
-              <div style="font-size:14px; flex:1;">{{ txt }}</div>
-            </div>
-          </div>
-
-          <!-- 猜手法阶段 -->
-          <div v-if="!isBlindSubmitted" style="background:var(--bg-warm); padding:14px; border-radius:8px; border:1px dashed var(--border-card);">
-            <div style="font-size:13px; font-weight:bold; margin-bottom:8px;">🎯 猜猜出题人用了什么挖坑手法？</div>
-            <div style="display:flex; flex-wrap:wrap; gap:6px;">
-              <button v-for="m in ALL_METHODS" :key="m.id"
-                :class="['sub-pill', { active: chosenBlindMethod === m.id }]"
-                @click="chosenBlindMethod = m.id">
-                {{ m.name }}
-              </button>
-            </div>
-            <div style="display:flex; justify-content:flex-end; margin-top:12px;">
-              <button class="ctrl-btn" style="background:var(--primary-accent); color:#fff; font-weight:bold; padding:8px 20px;"
-                :disabled="blindUserAnswers.length === 0 || !chosenBlindMethod"
-                @click="submitBlind">
-                提交作答并揭晓手法
-              </button>
-            </div>
-          </div>
-
-          <!-- 揭晓结果 -->
-          <div v-else style="background:var(--bg-warm); padding:16px; border-radius:10px; display:flex; flex-direction:column; gap:10px;">
-            <div style="font-weight:bold; font-size:15px;">
-              正确答案：{{ currentBlindQ.answer.join('') }} · 命中方法：
-              <span v-for="m in currentBlindQ.methods" :key="m" class="hit-tag-std">{{ getMethodName(m) }}</span>
-            </div>
-            <div :style="{ color: isBlindMethodHit ? 'var(--success-accent)' : 'var(--danger-accent)', fontWeight:'bold' }">
-              {{ isBlindMethodHit ? '🎉 识坑成功！你准确看穿了出题老师的套路！' : '❌ 辨识偏差：该题出题人主要运用的是【' + currentBlindQ.methods.map(getMethodName).join(' / ') + '】' }}
-            </div>
-            <div class="tip-box-std">{{ currentBlindQ.tip }}</div>
-            <div style="display:flex; justify-content:flex-end; margin-top:6px;">
-              <button class="ctrl-btn" style="background:var(--primary-accent); color:#fff;" @click="nextBlindQuestion">下一题 →</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 4. 限时模考 -->
-      <div v-else-if="solveSubTab === 'mock'" style="margin-top:12px;">
-        <div v-if="!isMockRunning" class="welcome-card">
-          <h2 style="font-size:18px;">⏱️ 考场全真限时模考</h2>
-          <p style="font-size:13px; color:var(--text-muted); margin-top:4px;">全真模拟考场环境，倒计时抽题连刷，训练临场快速破题与排除硬伤能力！</p>
-          <div style="display:flex; gap:10px; margin-top:14px;">
-            <button class="ctrl-btn" style="background:var(--primary-accent); color:#fff; font-weight:bold; padding:10px 20px;" @click="startMockExam(10, 15)">
-              抽做 10 题 (限时 15 分钟)
-            </button>
-            <button class="ctrl-btn" style="background:var(--bg-beige); font-weight:bold; padding:10px 20px;" @click="startMockExam(20, 30)">
-              抽做 20 题 (限时 30 分钟)
-            </button>
-          </div>
-        </div>
-
-        <div v-else style="display:flex; flex-direction:column; gap:14px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; background:#fff; padding:10px 16px; border-radius:10px; border:1px solid var(--border-card);">
-            <span style="font-weight:bold; font-size:14px;">模考进度：{{ mockQIndex + 1 }} / {{ mockPool.length }}</span>
-            <span style="font-size:16px; font-weight:800; color:var(--danger-accent);">⏱️ 剩余时间：{{ Math.floor(mockSeconds / 60) }}:{{ (mockSeconds % 60).toString().padStart(2, '0') }}</span>
-            <button class="ctrl-btn" style="background:#fee2e2; color:#991b1b; font-size:12px;" @click="finishMockExam">交卷</button>
-          </div>
-
-          <div v-if="currentMockQ" style="background:#fff; border:1px solid var(--border-card); border-radius:12px; padding:20px; display:flex; flex-direction:column; gap:14px;">
-            <div style="display:flex; gap:6px; align-items:center;">
-              <span class="source-id-tag">{{ currentMockQ.year }}年第{{ currentMockQ.no }}题</span>
-              <span :class="['type-badge', currentMockQ.type === 'single' ? 'single-badge' : 'multi-badge']">
-                {{ currentMockQ.type === 'single' ? '单选题' : '多选题' }}
-              </span>
-            </div>
-            <div style="font-size:15px; font-weight:600;">{{ currentMockQ.stem }}</div>
-            <div style="display:flex; flex-direction:column; gap:6px;">
-              <div v-for="(txt, key) in currentMockQ.options" :key="key"
-                :class="['opt-std-item', { selected: (mockAnswers[currentMockQ.id] || []).includes(key) }]"
-                @click="toggleMockOpt(key)">
+                @click="toggleSolveOption(key)">
                 <div class="opt-bubble-std">{{ key }}</div>
-                <div style="font-size:14px; flex:1;">{{ txt }}</div>
+                <div v-if="!isSolveSubmitted" style="font-size:14px; line-height:1.6; color:var(--text-main); flex:1;">{{ txt }}</div>
+                <div v-else style="font-size:14px; line-height:1.6; color:var(--text-main); flex:1;" v-html="highlightTombstonesHtml(txt)"></div>
               </div>
             </div>
 
-            <div style="display:flex; justify-content:space-between; margin-top:10px;">
-              <button class="ctrl-btn" :disabled="mockQIndex <= 0" @click="mockQIndex--">← 上一题</button>
-              <button class="ctrl-btn" v-if="mockQIndex < mockPool.length - 1" @click="mockQIndex++">下一题 →</button>
-              <button class="ctrl-btn" v-else style="background:var(--success-accent); color:#fff; font-weight:bold;" @click="finishMockExam">交卷并查看分数</button>
+            <!-- 盲测模式下的套路预判条 -->
+            <div v-if="isBlindMode && !isSolveSubmitted" style="background:var(--bg-warm); padding:10px 12px; border-radius:8px; border:1px dashed var(--border-card);">
+              <div style="font-size:12px; font-weight:bold; margin-bottom:6px;">🎯 (可选) 预判本题属于哪个专题套路：</div>
+              <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                <button v-for="ch in CHAPTER_LIST" :key="ch.id"
+                  :class="['sub-pill', { active: chosenBlindChapter === ch.id }]"
+                  @click="chosenBlindChapter = ch.id" style="font-size:12px; padding:4px 8px;">
+                  {{ ch.name }}
+                </button>
+              </div>
+            </div>
+
+            <!-- 解析区（提交后展开） -->
+            <div v-if="isSolveSubmitted" style="background:var(--bg-warm); border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:10px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+                <div style="font-weight:bold; font-size:15px;" :style="{ color: isSolveCorrect ? 'var(--success-accent)' : 'var(--danger-accent)' }">
+                  {{ isSolveCorrect ? '🎉 回答正确！' : '❌ 回答错误' }}
+                  <span style="color:var(--text-main); margin-left:8px; font-size:14px;">正确答案：{{ currentPracticeQ.answer.join('') }}</span>
+                </div>
+                <span class="hit-tag-std">📌 专题：{{ currentPracticeQ.chapterName }}</span>
+              </div>
+
+              <div v-if="isBlindMode && chosenBlindChapter" style="font-size:13px; font-weight:bold;"
+                :style="{ color: chosenBlindChapter === currentPracticeQ.chapterId ? 'var(--success-accent)' : 'var(--danger-accent)' }">
+                {{ chosenBlindChapter === currentPracticeQ.chapterId ? '🎯 套路预判命中！' : '💡 实际归属专题：【' + currentPracticeQ.chapterName + '】' }}
+              </div>
+
+              <!-- 命中墓碑词雷达快览 -->
+              <div v-if="currentPracticeQ.tombstoneHits && currentPracticeQ.tombstoneHits.length" style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px; display:flex; flex-wrap:wrap; gap:6px; align-items:center;">
+                <span style="font-size:12px; font-weight:bold; color:#991b1b;">⚰️ 选项命中墓碑词 (点击查卡片)：</span>
+                <button v-for="h in currentPracticeQ.tombstoneHits" :key="h.word"
+                  @click="openMethodCardByNum(h.kpNum)"
+                  style="background:#fff; border:1px solid #fca5a5; color:#b91c1c; font-size:12px; font-weight:700; padding:3px 8px; border-radius:99px;">
+                  {{ h.word }} · 知识点{{ h.kpNum }}
+                </button>
+              </div>
+
+              <!-- 逐题解析 -->
+              <div class="tip-box-std">
+                <div style="font-weight:bold; margin-bottom:4px; color:#874900;">📖 27版手册逐题解析：</div>
+                <div style="white-space:pre-line; line-height:1.65;">{{ currentPracticeQ.tip || '暂无解析' }}</div>
+              </div>
+
+              <div style="text-align:center;">
+                <div style="font-size:12px; color:var(--text-muted); margin-bottom:6px;">SRS 掌握度微调：</div>
+                <div class="eval-buttons" style="max-width:480px; margin:0 auto;">
+                  <button class="eval-btn btn-again" @click="gradeSolveSRS('again', true)"><span class="btn-main">生疏 (入错题)</span></button>
+                  <button class="eval-btn btn-good" @click="gradeSolveSRS('good', true)"><span class="btn-main">掌握 (下一题)</span></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 底部操作条（手机端自动吸底） -->
+            <div class="solve-mobile-bar" style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+              <button class="ctrl-btn" :disabled="currentPracticeIndex === 0" @click="jumpPracticeTo(currentPracticeIndex - 1)">← 上一题</button>
+              <button v-if="!isSolveSubmitted" class="ctrl-btn" style="flex:1; max-width:200px; background:var(--primary-accent); color:#fff; font-weight:bold; padding:10px;"
+                :disabled="solveUserAnswers.length === 0" @click="submitSolvePractice">
+                提交答案
+              </button>
+              <button v-else class="ctrl-btn" style="flex:1; max-width:200px; background:var(--success-accent); color:#fff; font-weight:bold; padding:10px;"
+                :disabled="currentPracticeIndex >= filteredSolveQuestions.length - 1"
+                @click="jumpPracticeTo(currentPracticeIndex + 1)">
+                下一题 →
+              </button>
+              <button class="ctrl-btn" :disabled="currentPracticeIndex >= filteredSolveQuestions.length - 1" @click="jumpPracticeTo(currentPracticeIndex + 1)">跳过 →</button>
             </div>
           </div>
-        </div>
+        </template>
+
+        <!-- 模式 B：全真限时模考 -->
+        <template v-else-if="practiceMode === 'mock'">
+          <!-- 模考配置页 -->
+          <div v-if="!isMockRunning && !mockReport" class="welcome-card">
+            <h2 style="font-size:18px;">⏱️ 考研政治选择题 · 全真限时模考</h2>
+            <p style="font-size:13px; color:var(--text-muted); margin-top:4px;">
+              做题期间隐藏专题标签，交卷后自动生成<strong>得分报告、9大专题薄弱诊断与逐题墓碑词复盘</strong>。
+            </p>
+            <label style="font-size:13px; display:flex; align-items:center; gap:6px; margin-top:8px; cursor:pointer;">
+              <input type="checkbox" v-model="mockPreferUnpracticed"> 优先抽取未做过/错题（避免重复刷已掌握题）
+            </label>
+            <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:12px;">
+              <button class="ctrl-btn" style="background:var(--primary-accent); color:#fff; font-weight:bold; padding:10px 18px;" @click="startMockExam('quick')">
+                ⚡ 快速自测 · 10 题 (15 分钟)
+              </button>
+              <button class="ctrl-btn" style="background:var(--bg-beige); font-weight:bold; padding:10px 18px;" @click="startMockExam('standard')">
+                📘 强化模考 · 20 题 (30 分钟)
+              </button>
+              <button class="ctrl-btn" style="background:#fef3c7; color:#92400e; border:1px solid #f59e0b; font-weight:bold; padding:10px 18px;" @click="startMockExam('full50')">
+                🏆 考研全真 50 分制 · 33 题 (16单选+17多选 / 45分钟)
+              </button>
+            </div>
+          </div>
+
+          <!-- 模考进行中 -->
+          <div v-else-if="isMockRunning" style="display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; background:#fff; padding:10px 14px; border-radius:10px; border:1px solid var(--border-card); flex-wrap:wrap; gap:8px;">
+              <button class="ctrl-btn" style="font-size:12px; padding:4px 10px;" @click="showMockSheet = !showMockSheet">
+                📋 答题卡 {{ mockQIndex + 1 }}/{{ mockPool.length }}
+              </button>
+              <span style="font-size:15px; font-weight:800; color:var(--danger-accent);">
+                ⏱️ {{ Math.floor(mockSeconds / 60) }}:{{ (mockSeconds % 60).toString().padStart(2, '0') }}
+              </span>
+              <button class="ctrl-btn" style="background:#fee2e2; color:#991b1b; font-size:12px; font-weight:bold;" @click="finishMockExam">交卷出分</button>
+            </div>
+
+            <div v-if="showMockSheet" style="background:#fff; border:1px solid var(--border-card); border-radius:10px; padding:12px;">
+              <div class="q-sheet-grid">
+                <button v-for="(mq, idx) in mockPool" :key="mq.id" @click="mockQIndex = idx; showMockSheet = false;"
+                  :class="['q-sheet-dot', {
+                    active: idx === mockQIndex,
+                    answered: (mockAnswers[mq.id] || []).length > 0,
+                    flagged: !!mockFlagged[mq.id]
+                  }]">
+                  {{ idx + 1 }}
+                </button>
+              </div>
+            </div>
+
+            <div v-if="currentMockQ" style="background:#fff; border:1px solid var(--border-card); border-radius:12px; padding:18px; display:flex; flex-direction:column; gap:14px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; gap:6px; align-items:center;">
+                  <span class="source-id-tag">第 {{ mockQIndex + 1 }} 题</span>
+                  <span :class="['type-badge', currentMockQ.type === 'single' ? 'single-badge' : 'multi-badge']">
+                    {{ currentMockQ.type === 'single' ? '单选 (1分)' : '多选 (2分)' }}
+                  </span>
+                </div>
+                <button class="ctrl-btn" style="font-size:12px;" @click="toggleMockFlag(currentMockQ.id)">
+                  {{ mockFlagged[currentMockQ.id] ? '🚩 已标记存疑' : '🏳️ 标记存疑' }}
+                </button>
+              </div>
+              <div style="font-size:15px; font-weight:600; line-height:1.7;">{{ currentMockQ.stem }}</div>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <div v-for="(txt, key) in currentMockQ.options" :key="key"
+                  :class="['opt-std-item', { selected: (mockAnswers[currentMockQ.id] || []).includes(key) }]"
+                  @click="toggleMockOpt(key)">
+                  <div class="opt-bubble-std">{{ key }}</div>
+                  <div style="font-size:14px; flex:1;">{{ txt }}</div>
+                </div>
+              </div>
+              <div class="solve-mobile-bar" style="display:flex; justify-content:space-between; gap:8px;">
+                <button class="ctrl-btn" :disabled="mockQIndex <= 0" @click="mockQIndex--">← 上一题</button>
+                <button class="ctrl-btn" v-if="mockQIndex < mockPool.length - 1" style="background:var(--primary-accent); color:#fff; flex:1; max-width:180px;" @click="mockQIndex++">下一题 →</button>
+                <button class="ctrl-btn" v-else style="background:var(--success-accent); color:#fff; font-weight:bold; flex:1; max-width:180px;" @click="finishMockExam">交卷并生成报告</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 模考复盘报告页 (替代原 alert()) -->
+          <div v-else-if="mockReport" style="display:flex; flex-direction:column; gap:14px;">
+            <div class="welcome-card">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <div>
+                  <h2 style="font-size:19px;">🏆 模考复盘报告</h2>
+                  <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">用时 {{ mockReport.usedTimeText }} · 共 {{ mockReport.totalCount }} 题</p>
+                </div>
+                <div style="text-align:right;">
+                  <div style="font-size:26px; font-weight:900; color:var(--primary-accent);">{{ mockReport.earnedScore }} / {{ mockReport.maxScore }} 分</div>
+                  <div style="font-size:12px; color:var(--text-muted);">答对 {{ mockReport.correctCount }}/{{ mockReport.totalCount }} 题 ({{ mockReport.accuracy }}%)</div>
+                </div>
+              </div>
+              <div class="stat-grid" style="margin-top:10px;">
+                <div class="stat-box"><div class="stat-num">{{ mockReport.singleOk }}/{{ mockReport.singleTotal }}</div><div style="font-size:11px; color:var(--text-muted);">单选得分</div></div>
+                <div class="stat-box"><div class="stat-num">{{ mockReport.multiOk }}/{{ mockReport.multiTotal }}</div><div style="font-size:11px; color:var(--text-muted);">多选得分</div></div>
+                <div class="stat-box box-mistake"><div class="stat-num">{{ mockReport.wrongItems.length }}</div><div style="font-size:11px; color:var(--text-muted);">本次错题</div></div>
+                <div class="stat-box"><div class="stat-num">{{ mockReport.accuracy }}%</div><div style="font-size:11px; color:var(--text-muted);">综合正确率</div></div>
+              </div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+                <button v-if="mockReport.wrongItems.length > 0" class="ctrl-btn" style="background:#fee2e2; color:#991b1b; font-weight:bold;" @click="addMockWrongsToBook">
+                  📕 一键将 {{ mockReport.wrongItems.length }} 道错题加入错题本
+                </button>
+                <button class="ctrl-btn" style="background:var(--primary-accent); color:#fff; font-weight:bold;" @click="mockReport = null">返回模考选择</button>
+              </div>
+            </div>
+
+            <!-- 逐题复盘列表 -->
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-weight:bold; font-size:14px;">逐题解析复盘</span>
+              <div style="display:flex; gap:6px;">
+                <button :class="['sub-pill', { active: mockReviewFilter === 'wrong' }]" @click="mockReviewFilter = 'wrong'">只看错题 ({{ mockReport.wrongItems.length }})</button>
+                <button :class="['sub-pill', { active: mockReviewFilter === 'all' }]" @click="mockReviewFilter = 'all'">全部 ({{ mockReport.items.length }})</button>
+              </div>
+            </div>
+
+            <div v-for="(item, idx) in mockReviewItems" :key="item.q.id"
+              style="background:#fff; border:1px solid var(--border-card); border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:10px;"
+              @click="handleTombstoneClick($event)">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+                <div style="display:flex; gap:6px; align-items:center;">
+                  <span :style="{ fontWeight:'bold', color: item.isCorrect ? 'var(--success-accent)' : 'var(--danger-accent)' }">
+                    {{ item.isCorrect ? '✅' : '❌' }} 第 {{ item.index + 1 }} 题
+                  </span>
+                  <span class="source-id-tag">{{ item.q.year }}-{{ item.q.no }}</span>
+                  <span class="kw-pill">{{ item.q.chapterName }}</span>
+                </div>
+                <span style="font-size:12px;">你的答案：<strong>{{ item.userAns.join('') || '未选' }}</strong> | 正确：<strong>{{ item.q.answer.join('') }}</strong></span>
+              </div>
+              <div style="font-size:14px; font-weight:600;">{{ item.q.stem }}</div>
+              <div style="display:flex; flex-direction:column; gap:4px; font-size:13px;">
+                <div v-for="(txt, key) in item.q.options" :key="key"
+                  :style="{
+                    padding: '6px 8px', borderRadius: '6px',
+                    background: item.q.answer.includes(key) ? '#f0fdf4' : (item.userAns.includes(key) ? '#fef2f2' : '#fafafa')
+                  }">
+                  <strong>{{ key }}.</strong> <span v-html="highlightTombstonesHtml(txt)"></span>
+                </div>
+              </div>
+              <div class="tip-box-std" style="font-size:12px;">{{ item.q.tip }}</div>
+            </div>
+          </div>
+        </template>
       </div>
 
-      <!-- 5. 统计看板 -->
-      <div v-else-if="solveSubTab === 'dashboard'" style="margin-top:12px; display:flex; flex-direction:column; gap:14px;">
+      <!-- ==================== 3. 错题与复盘 (统计概览 + 9专题进度 + 错题突击) ==================== -->
+      <div v-else-if="solveSubTab === 'mistakes'" style="margin-top:12px; display:flex; flex-direction:column; gap:14px;">
         <div class="stat-grid">
-          <div class="stat-box">
-            <div class="stat-num">{{ ALL_QUESTIONS.length }}</div>
-            <div style="font-size:12px; color:var(--text-muted);">收录真题总数</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-num">{{ solvePracticedCount }}</div>
-            <div style="font-size:12px; color:var(--text-muted);">已练题数</div>
-          </div>
-          <div class="stat-box box-mastered">
-            <div class="stat-num">{{ solveAccuracy }}%</div>
-            <div style="font-size:12px; color:var(--text-muted);">综合正确率</div>
-          </div>
-          <div class="stat-box box-mistake">
-            <div class="stat-num">{{ solveMistakeCount }}</div>
-            <div style="font-size:12px; color:var(--text-muted);">错题待巩固</div>
-          </div>
+          <div class="stat-box"><div class="stat-num">{{ ALL_QUESTIONS.length }}</div><div style="font-size:12px; color:var(--text-muted);">题库总题数</div></div>
+          <div class="stat-box"><div class="stat-num">{{ solvePracticedCount }}</div><div style="font-size:12px; color:var(--text-muted);">已练题数</div></div>
+          <div class="stat-box box-mastered"><div class="stat-num">{{ solveAccuracy }}%</div><div style="font-size:12px; color:var(--text-muted);">综合正确率</div></div>
+          <div class="stat-box box-mistake"><div class="stat-num">{{ solveMistakeCount }}</div><div style="font-size:12px; color:var(--text-muted);">待巩固错题</div></div>
         </div>
 
-        <!-- 10类手法正确率 -->
-        <div style="background:#fff; border:1px solid var(--border-card); border-radius:10px; padding:16px;">
-          <h3 style="font-size:15px; margin-bottom:12px;">📊 10 类方法掌握度</h3>
-          <div style="display:flex; flex-direction:column; gap:10px;">
-            <div v-for="m in ALL_METHODS" :key="m.id">
-              <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
-                <span style="font-weight:600;">{{ m.name }}</span>
-                <span style="color:var(--text-muted);">{{ getMethodStatStd(m.id).accuracy }}% ({{ getMethodStatStd(m.id).practiced }}/{{ m.questionIds.length }})</span>
+        <!-- 9 大专题掌握度 -->
+        <div style="background:#fff; border:1px solid var(--border-card); border-radius:10px; padding:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h3 style="font-size:14px;">📊 九大专题掌握度（点击专题去刷题）</h3>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:10px;">
+            <div v-for="ch in CHAPTER_LIST" :key="ch.id" @click="startPracticeChapter(ch.id)"
+              style="cursor:pointer; padding:8px 10px; border:1px solid var(--border-light); border-radius:8px; background:var(--bg-warm);">
+              <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+                <span style="font-weight:700;">{{ ch.label }}</span>
+                <span style="color:var(--text-muted);">{{ getChapterStat(ch.id).accuracy }}% ({{ getChapterStat(ch.id).practiced }}/{{ getChapterStat(ch.id).total }})</span>
               </div>
-              <div style="height:6px; background:#f0f0f0; border-radius:3px; overflow:hidden;">
-                <div :style="{ width: getMethodStatStd(m.id).accuracy + '%', background: 'var(--primary-accent)', height: '100%' }"></div>
+              <div style="height:5px; background:#e5e7eb; border-radius:3px; overflow:hidden;">
+                <div :style="{ width: getChapterStat(ch.id).accuracy + '%', background: 'var(--primary-accent)', height: '100%' }"></div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- 6. 错题本 -->
-      <div v-else-if="solveSubTab === 'mistakes'" style="margin-top:12px; display:flex; flex-direction:column; gap:12px;">
-        <div class="welcome-card">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
+        <!-- 错题本 -->
+        <div class="welcome-card" style="padding:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
             <div>
-              <h2 style="font-size:18px;">📕 解题薄弱错题本</h2>
-              <p style="font-size:13px; color:var(--text-muted); margin-top:2px;">按解题方法归类的做错真题 · 连续 2 次答对掌握自动移出</p>
+              <h2 style="font-size:17px;">📕 错题巩固本 ({{ filteredMistakeQuestions.length }})</h2>
+              <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">连续答对 2 次自动移出 · 支持按专题筛选</p>
             </div>
-            <span style="font-size:22px; font-weight:800; color:var(--danger-accent);">{{ solveMistakeQuestions.length }} 题</span>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <select v-model="mistakeChapterFilter" style="padding:6px 10px; border-radius:6px; border:1px solid var(--border-card); font-size:12px;">
+                <option value="all">全部专题错题</option>
+                <option v-for="ch in CHAPTER_LIST" :key="ch.id" :value="ch.id">{{ ch.label }}</option>
+              </select>
+              <button v-if="solveMistakeQuestions.length > 0" class="ctrl-btn" style="background:#991b1b; color:#fff; font-weight:bold; font-size:12px;" @click="startMistakesBlitz">
+                🔥 一键重刷错题
+              </button>
+            </div>
           </div>
         </div>
 
-        <div v-if="solveMistakeQuestions.length === 0" style="background:#fff; padding:40px; border-radius:12px; text-align:center; color:var(--text-muted); border:1px dashed var(--border-card);">
-          🌟 当前解题题库没有任何错题！继续保持！
+        <div v-if="filteredMistakeQuestions.length === 0" style="background:#fff; padding:36px; border-radius:12px; text-align:center; color:var(--text-muted); border:1px dashed var(--border-card);">
+          🌟 当前筛选下没有待巩固错题！继续保持！
         </div>
 
-        <div v-else style="display:flex; flex-direction:column; gap:10px;">
-          <div v-for="q in solveMistakeQuestions" :key="q.id" style="background:#fff; border:1px solid var(--border-card); border-radius:10px; padding:14px; display:flex; justify-content:space-between; align-items:center;">
-            <div>
-              <div style="display:flex; gap:6px; align-items:center; margin-bottom:4px;">
+        <div v-else style="display:flex; flex-direction:column; gap:8px;">
+          <div v-for="q in filteredMistakeQuestions" :key="q.id"
+            style="background:#fff; border:1px solid var(--border-card); border-radius:10px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:4px;">
                 <span class="source-id-tag">{{ q.year }}年第{{ q.no }}题</span>
-                <span class="hit-tag-std" v-for="m in q.methods" :key="m">{{ getMethodName(m) }}</span>
+                <span class="hit-tag-std">{{ q.chapterName }}</span>
+                <span style="font-size:11px; color:var(--text-muted);">巩固度 {{ solveRecords[q.id]?.consecutiveGood || 0 }}/2</span>
               </div>
-              <div style="font-size:13px; color:var(--text-main); max-width:600px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                {{ q.stem }}
-              </div>
+              <div style="font-size:13px; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ q.stem }}</div>
             </div>
-            <div style="display:flex; gap:8px;">
-              <button class="ctrl-btn" style="background:var(--primary-accent-bg); color:var(--primary-accent);" @click="startPracticeMethod(q.methods[0])">重做</button>
-            </div>
+            <button class="ctrl-btn" style="background:var(--primary-accent-bg); color:var(--primary-accent); font-weight:bold;" @click="practiceSingleQuestion(q)">重做</button>
           </div>
         </div>
       </div>
@@ -1622,6 +1652,22 @@ html_template = """<!DOCTYPE html>
                 <strong>⚠️ 避坑提醒：</strong>{{ q.trapAlert }}
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- 方法卡片速查弹窗 (点击墓碑词高亮或索引触发) -->
+    <template v-if="activeMethodCard">
+      <div class="modal-overlay" @click.self="activeMethodCard = null">
+        <div class="modal-dialog" style="max-width:560px; max-height:85vh; display:flex; flex-direction:column;">
+          <div class="modal-header">
+            <div style="font-weight:bold; font-size:15px;">📖 知识点 {{ activeMethodCard.num }} · {{ activeMethodCard.title }}</div>
+            <button style="background:none; font-size:18px;" @click="activeMethodCard = null">✕</button>
+          </div>
+          <div style="padding:18px; overflow-y:auto; display:flex; flex-direction:column; gap:10px;">
+            <div style="font-size:12px; color:var(--primary-accent); font-weight:bold;">{{ activeMethodCard.breadcrumb }}</div>
+            <div style="font-size:14px; line-height:1.75; white-space:pre-line; color:var(--text-main);">{{ activeMethodCard.content }}</div>
           </div>
         </div>
       </div>
@@ -2383,24 +2429,86 @@ html_template = """<!DOCTYPE html>
         const ALL_METHODS = __ALL_METHODS_JSON__;
         const ALL_QUESTIONS = __ALL_QUESTIONS_JSON__;
         const ALL_MINDSETS = __ALL_MINDSETS_JSON__;
+        const ALL_METHOD_CARDS = __ALL_METHOD_CARDS_JSON__;
+        const ALL_TOMBSTONE_INDEX = __ALL_TOMBSTONE_INDEX_JSON__;
         const mindsetPrinciples = ALL_MINDSETS.mindsetPrinciples || [];
         const classicMarxQuotes = ALL_MINDSETS.classicMarxQuotes || [];
         const tombstoneWords = ALL_MINDSETS.tombstoneWords || [];
 
-        const solveSubTab = ref('methods');
-        const methodsActiveTab = ref('methods');
+        const CHAPTER_LIST = [
+          { id: 'ch01', name: '最基本的立场问题', label: '01 最基本的立场问题' },
+          { id: 'ch02', name: '墓碑词', label: '02 墓碑词' },
+          { id: 'ch03', name: '夸张', label: '03 夸张' },
+          { id: 'ch04', name: '唯心', label: '04 唯心' },
+          { id: 'ch05', name: '时态问题', label: '05 时态问题' },
+          { id: 'ch06', name: '不合题意', label: '06 不合题意' },
+          { id: 'ch07', name: '对冲命题', label: '07 对冲命题' },
+          { id: 'ch08', name: '时政', label: '08 时政' },
+          { id: 'ch09', name: '其他题目', label: '09 其他题目' }
+        ];
+
+        const solveSubTab = ref('practice');
+        const methodsActiveTab = ref('cards');
+        const methodCardQuery = ref('');
+        const methodCardCategory = ref('all');
+        const tombstoneQuery = ref('');
+        const activeMethodCard = ref(null);
         const showMindsetBanner = ref(false);
         const showMarxModal = ref(false);
         const showTombstoneModal = ref(false);
 
+        const filteredMethodCards = computed(() => {
+          const q = methodCardQuery.value.trim().toLowerCase();
+          return ALL_METHOD_CARDS.filter(c => {
+            if (methodCardCategory.value !== 'all' && c.category !== methodCardCategory.value) return false;
+            if (!q) return true;
+            return c.num.includes(q) || c.title.toLowerCase().includes(q) || c.content.toLowerCase().includes(q) || c.breadcrumb.toLowerCase().includes(q);
+          });
+        });
+
+        const filteredTombstones = computed(() => {
+          const q = tombstoneQuery.value.trim().toLowerCase();
+          if (!q) return ALL_TOMBSTONE_INDEX;
+          return ALL_TOMBSTONE_INDEX.filter(t => t.word.toLowerCase().includes(q) || t.kpNum.includes(q));
+        });
+
+        function openMethodCardByNum(kpNum) {
+          const found = ALL_METHOD_CARDS.find(c => c.num === String(kpNum).padStart(3, '0'));
+          if (found) activeMethodCard.value = found;
+        }
+
+        function escapeHtml(str) {
+          return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        const TOMBSTONE_SORTED = [...ALL_TOMBSTONE_INDEX].sort((a, b) => b.word.length - a.word.length);
+        function highlightTombstonesHtml(text) {
+          let safe = escapeHtml(text);
+          const placeholders = [];
+          for (const t of TOMBSTONE_SORTED) {
+            if (t.word && safe.includes(t.word)) {
+              const idx = placeholders.length;
+              placeholders.push(`<span class="ts-hit" data-kp="${t.kpNum}" title="点击查看知识点${t.kpNum}">${escapeHtml(t.word)}</span>`);
+              safe = safe.split(t.word).join(`__TS_PH_${idx}__`);
+            }
+          }
+          placeholders.forEach((html, i) => {
+            safe = safe.split(`__TS_PH_${i}__`).join(html);
+          });
+          return safe;
+        }
+
+        function handleTombstoneClick(e) {
+          const el = e.target && e.target.closest ? e.target.closest('.ts-hit') : null;
+          if (el && el.dataset && el.dataset.kp) {
+            e.stopPropagation();
+            openMethodCardByNum(el.dataset.kp);
+          }
+        }
+
         function getMethodObj(mid) {
           return ALL_METHODS.find(x => x.id === mid) || null;
         }
-
-        const selectedPracticeMethod = ref('all');
-        const currentPracticeIndex = ref(0);
-        const solveUserAnswers = ref([]);
-        const isSolveSubmitted = ref(false);
 
         const solveRecords = ref({});
         function loadSolveStorage() {
@@ -2415,15 +2523,63 @@ html_template = """<!DOCTYPE html>
           } catch(e) {}
         }
 
+        // 专题刷题状态
+        const practiceMode = ref('chapter'); // 'chapter' | 'mock'
+        const selectedPracticeChapter = ref('all');
+        const selectedQuestionFilter = ref('all');
+        const isBlindMode = ref(false);
+        const chosenBlindChapter = ref('');
+        const shuffleSeed = ref(0);
+        const showPracticeSheet = ref(false);
+        const currentPracticeIndex = ref(0);
+        const solveUserAnswers = ref([]);
+        const isSolveSubmitted = ref(false);
+
+        function getChapterCount(chId) {
+          return ALL_QUESTIONS.filter(q => q.chapterId === chId).length;
+        }
+
         const filteredSolveQuestions = computed(() => {
-          if (selectedPracticeMethod.value === 'all') return ALL_QUESTIONS;
-          return ALL_QUESTIONS.filter(q => q.methods.includes(selectedPracticeMethod.value));
+          let list = ALL_QUESTIONS.filter(q => {
+            if (selectedPracticeChapter.value !== 'all' && q.chapterId !== selectedPracticeChapter.value) return false;
+            if (selectedQuestionFilter.value === 'single' && q.type !== 'single') return false;
+            if (selectedQuestionFilter.value === 'multi' && q.type !== 'multi') return false;
+            if (selectedQuestionFilter.value === 'unpracticed' && solveRecords.value[q.id]?.history?.length) return false;
+            if (selectedQuestionFilter.value === 'mistakes' && !solveRecords.value[q.id]?.inMistakeBook) return false;
+            return true;
+          });
+          if (shuffleSeed.value > 0) {
+            list = [...list].sort(() => Math.random() - 0.5);
+          }
+          return list;
         });
 
         const currentPracticeQ = computed(() => filteredSolveQuestions.value[currentPracticeIndex.value] || null);
 
+        function resetPracticeCursor() {
+          currentPracticeIndex.value = 0;
+          solveUserAnswers.value = [];
+          isSolveSubmitted.value = false;
+          chosenBlindChapter.value = '';
+          showPracticeSheet.value = false;
+        }
+
+        function jumpPracticeTo(idx) {
+          if (idx < 0 || idx >= filteredSolveQuestions.value.length) return;
+          currentPracticeIndex.value = idx;
+          solveUserAnswers.value = [];
+          isSolveSubmitted.value = false;
+          chosenBlindChapter.value = '';
+          showPracticeSheet.value = false;
+        }
+
+        function shufflePracticePool() {
+          shuffleSeed.value++;
+          resetPracticeCursor();
+        }
+
         function toggleSolveOption(opt) {
-          if (isSolveSubmitted.value) return;
+          if (isSolveSubmitted.value || !currentPracticeQ.value) return;
           if (currentPracticeQ.value.type === 'single') {
             solveUserAnswers.value = [opt];
           } else {
@@ -2470,18 +2626,38 @@ html_template = """<!DOCTYPE html>
           saveSolveStorage();
 
           if (advance && currentPracticeIndex.value < filteredSolveQuestions.value.length - 1) {
-            currentPracticeIndex.value++;
-            solveUserAnswers.value = [];
-            isSolveSubmitted.value = false;
+            jumpPracticeTo(currentPracticeIndex.value + 1);
           }
         }
 
-        function startPracticeMethod(mid) {
-          selectedPracticeMethod.value = mid;
-          currentPracticeIndex.value = 0;
-          solveUserAnswers.value = [];
-          isSolveSubmitted.value = false;
+        function startPracticeChapter(chId) {
+          selectedPracticeChapter.value = chId;
+          selectedQuestionFilter.value = 'all';
+          practiceMode.value = 'chapter';
           solveSubTab.value = 'practice';
+          resetPracticeCursor();
+        }
+
+        function startPracticeMethod(mid) {
+          startPracticeChapter('all');
+        }
+
+        function startMistakesBlitz() {
+          selectedPracticeChapter.value = mistakeChapterFilter.value;
+          selectedQuestionFilter.value = 'mistakes';
+          practiceMode.value = 'chapter';
+          solveSubTab.value = 'practice';
+          resetPracticeCursor();
+        }
+
+        function practiceSingleQuestion(q) {
+          selectedPracticeChapter.value = 'all';
+          selectedQuestionFilter.value = 'all';
+          shuffleSeed.value = 0;
+          practiceMode.value = 'chapter';
+          solveSubTab.value = 'practice';
+          const idx = ALL_QUESTIONS.findIndex(item => item.id === q.id);
+          jumpPracticeTo(idx >= 0 ? idx : 0);
         }
 
         function getMethodName(mid) {
@@ -2499,51 +2675,60 @@ html_template = """<!DOCTYPE html>
           saveSolveStorage();
         }
 
-        // 盲测模式
-        const currentBlindIndex = ref(0);
-        const blindUserAnswers = ref([]);
-        const chosenBlindMethod = ref('');
-        const isBlindSubmitted = ref(false);
-
-        const currentBlindQ = computed(() => ALL_QUESTIONS[currentBlindIndex.value] || null);
-        function toggleBlindOption(opt) {
-          if (isBlindSubmitted.value) return;
-          if (currentBlindQ.value.type === 'single') blindUserAnswers.value = [opt];
-          else {
-            const idx = blindUserAnswers.value.indexOf(opt);
-            if (idx >= 0) blindUserAnswers.value.splice(idx, 1);
-            else { blindUserAnswers.value.push(opt); blindUserAnswers.value.sort(); }
-          }
-        }
-        const isBlindMethodHit = computed(() => currentBlindQ.value && currentBlindQ.value.methods.includes(chosenBlindMethod.value));
-        function submitBlind() {
-          isBlindSubmitted.value = true;
-        }
-        function nextBlindQuestion() {
-          if (currentBlindIndex.value < ALL_QUESTIONS.length - 1) {
-            currentBlindIndex.value++;
-            blindUserAnswers.value = [];
-            chosenBlindMethod.value = '';
-            isBlindSubmitted.value = false;
-          }
-        }
-
-        // 限时模考
+        // 全真限时模考
         const isMockRunning = ref(false);
+        const mockPreferUnpracticed = ref(true);
         const mockSeconds = ref(900);
+        const mockTotalSeconds = ref(900);
         const mockPool = ref([]);
         const mockQIndex = ref(0);
         const mockAnswers = ref({});
+        const mockFlagged = ref({});
+        const showMockSheet = ref(false);
+        const mockReport = ref(null);
+        const mockReviewFilter = ref('wrong');
         let mockTimer = null;
 
         const currentMockQ = computed(() => mockPool.value[mockQIndex.value] || null);
+        const mockReviewItems = computed(() => {
+          if (!mockReport.value) return [];
+          return mockReviewFilter.value === 'wrong' ? mockReport.value.wrongItems : mockReport.value.items;
+        });
 
-        function startMockExam(count = 10, minutes = 15) {
-          const shuffled = [...ALL_QUESTIONS].sort(() => Math.random() - 0.5);
-          mockPool.value = shuffled.slice(0, count);
+        function pickQuestions(pool, count) {
+          if (!mockPreferUnpracticed.value) {
+            return [...pool].sort(() => Math.random() - 0.5).slice(0, count);
+          }
+          const priority = pool.filter(q => !solveRecords.value[q.id]?.history?.length || solveRecords.value[q.id]?.inMistakeBook);
+          const rest = pool.filter(q => !priority.includes(q));
+          const pShuf = [...priority].sort(() => Math.random() - 0.5);
+          const rShuf = [...rest].sort(() => Math.random() - 0.5);
+          return [...pShuf, ...rShuf].slice(0, count);
+        }
+
+        function startMockExam(mode = 'quick') {
+          let pool = [];
+          let minutes = 15;
+          if (mode === 'full50') {
+            const singles = pickQuestions(ALL_QUESTIONS.filter(q => q.type === 'single'), 16);
+            const multis = pickQuestions(ALL_QUESTIONS.filter(q => q.type === 'multi'), 17);
+            pool = [...singles, ...multis];
+            minutes = 45;
+          } else if (mode === 'standard') {
+            pool = pickQuestions(ALL_QUESTIONS, 20);
+            minutes = 30;
+          } else {
+            pool = pickQuestions(ALL_QUESTIONS, 10);
+            minutes = 15;
+          }
+          mockPool.value = pool;
           mockQIndex.value = 0;
           mockAnswers.value = {};
+          mockFlagged.value = {};
+          showMockSheet.value = false;
+          mockReport.value = null;
           mockSeconds.value = minutes * 60;
+          mockTotalSeconds.value = minutes * 60;
           isMockRunning.value = true;
 
           if (mockTimer) clearInterval(mockTimer);
@@ -2570,39 +2755,97 @@ html_template = """<!DOCTYPE html>
           }
         }
 
-        function finishMockExam() {
-          if (mockTimer) clearInterval(mockTimer);
-          let score = 0;
-          mockPool.value.forEach(q => {
-            const userAns = mockAnswers.value[q.id] || [];
-            const isCor = [...userAns].sort().join('') === [...q.answer].sort().join('');
-            if (isCor) score++;
-          });
-          alert(`模考结束！得分：${score} / ${mockPool.value.length} (正确率 ${Math.round((score/mockPool.value.length)*100)}%)`);
-          isMockRunning.value = false;
+        function toggleMockFlag(qid) {
+          mockFlagged.value[qid] = !mockFlagged.value[qid];
         }
 
-        // 错题统计
-        const solveMistakeQuestions = computed(() => {
-          return ALL_QUESTIONS.filter(q => solveRecords.value[q.id]?.inMistakeBook);
+        function finishMockExam() {
+          if (mockTimer) clearInterval(mockTimer);
+          isMockRunning.value = false;
+          let earnedScore = 0, maxScore = 0, correctCount = 0;
+          let singleOk = 0, singleTotal = 0, multiOk = 0, multiTotal = 0;
+          const items = [];
+          const wrongItems = [];
+
+          mockPool.value.forEach((q, idx) => {
+            const userAns = mockAnswers.value[q.id] || [];
+            const isCor = [...userAns].sort().join('') === [...q.answer].sort().join('');
+            const pts = q.type === 'multi' ? 2 : 1;
+            maxScore += pts;
+            if (q.type === 'multi') { multiTotal++; if (isCor) multiOk++; }
+            else { singleTotal++; if (isCor) singleOk++; }
+            if (isCor) {
+              earnedScore += pts;
+              correctCount++;
+            }
+            const item = { index: idx, q, userAns, isCorrect: isCor };
+            items.push(item);
+            if (!isCor) wrongItems.push(item);
+
+            // 同步记入刷题统计
+            const prev = solveRecords.value[q.id] || { reviewCount:0, consecutiveGood:0, inMistakeBook:false, history:[] };
+            solveRecords.value[q.id] = {
+              ...prev,
+              reviewCount: prev.reviewCount + 1,
+              consecutiveGood: isCor ? prev.consecutiveGood + 1 : 0,
+              inMistakeBook: isCor ? (prev.consecutiveGood + 1 >= 2 ? false : prev.inMistakeBook) : true,
+              history: [...prev.history, { time: Date.now(), isCorrect: isCor, userSelected: userAns }]
+            };
+          });
+          saveSolveStorage();
+
+          const usedSec = Math.max(1, mockTotalSeconds.value - mockSeconds.value);
+          const usedTimeText = `${Math.floor(usedSec / 60)}分${usedSec % 60}秒`;
+          mockReviewFilter.value = wrongItems.length > 0 ? 'wrong' : 'all';
+          mockReport.value = {
+            earnedScore, maxScore, correctCount,
+            totalCount: mockPool.value.length,
+            accuracy: mockPool.value.length ? Math.round((correctCount / mockPool.value.length) * 100) : 0,
+            singleOk, singleTotal, multiOk, multiTotal,
+            usedTimeText, items, wrongItems
+          };
+        }
+
+        function addMockWrongsToBook() {
+          if (!mockReport.value) return;
+          mockReport.value.wrongItems.forEach(item => {
+            const prev = solveRecords.value[item.q.id] || { reviewCount:0, consecutiveGood:0, inMistakeBook:false, history:[] };
+            solveRecords.value[item.q.id] = { ...prev, inMistakeBook: true };
+          });
+          saveSolveStorage();
+        }
+
+        // 错题与复盘统计
+        const mistakeChapterFilter = ref('all');
+        const solveMistakeQuestions = computed(() => ALL_QUESTIONS.filter(q => solveRecords.value[q.id]?.inMistakeBook));
+        const filteredMistakeQuestions = computed(() => {
+          if (mistakeChapterFilter.value === 'all') return solveMistakeQuestions.value;
+          return solveMistakeQuestions.value.filter(q => q.chapterId === mistakeChapterFilter.value);
         });
         const solveMistakeCount = computed(() => solveMistakeQuestions.value.length);
-        const solvePracticedCount = computed(() => {
-          return Object.values(solveRecords.value).filter(r => r.history && r.history.length > 0).length;
-        });
+        const solvePracticedCount = computed(() => Object.values(solveRecords.value).filter(r => r.history && r.history.length > 0).length);
         const solveAccuracy = computed(() => {
-          let totalReviews = 0;
-          let totalCorrect = 0;
+          let totalReviews = 0, totalCorrect = 0;
           Object.values(solveRecords.value).forEach(r => {
             if (r.history) {
-              r.history.forEach(h => {
-                totalReviews++;
-                if (h.isCorrect) totalCorrect++;
-              });
+              r.history.forEach(h => { totalReviews++; if (h.isCorrect) totalCorrect++; });
             }
           });
           return totalReviews > 0 ? Math.round((totalCorrect / totalReviews) * 100) : 0;
         });
+
+        function getChapterStat(chId) {
+          const qs = ALL_QUESTIONS.filter(q => q.chapterId === chId);
+          let p = 0, c = 0;
+          qs.forEach(q => {
+            const r = solveRecords.value[q.id];
+            if (r && r.history && r.history.length > 0) {
+              p++;
+              if (r.history[r.history.length - 1].isCorrect) c++;
+            }
+          });
+          return { total: qs.length, practiced: p, accuracy: p > 0 ? Math.round((c / p) * 100) : 0 };
+        }
 
         function getMethodStatStd(mid) {
           const m = ALL_METHODS.find(x => x.id === mid);
@@ -2610,7 +2853,7 @@ html_template = """<!DOCTYPE html>
           let p = 0, c = 0;
           m.questionIds.forEach(qid => {
             const r = solveRecords.value[qid];
-            if (r && r.history.length > 0) {
+            if (r && r.history && r.history.length > 0) {
               p++;
               if (r.history[r.history.length - 1].isCorrect) c++;
             }
@@ -2622,6 +2865,7 @@ html_template = """<!DOCTYPE html>
           showSettingsModal.value = false;
           showMarxModal.value = false;
           showTombstoneModal.value = false;
+          activeMethodCard.value = null;
           loadStorage();
           loadSolveStorage();
           if (initial.cardId) {
@@ -2887,17 +3131,23 @@ html_template = """<!DOCTYPE html>
           isQuizRunning, quizScope, quizPool, quizIndex, quizRevealed, currentQuizCard, startQuiz, handleQuizEval,
           showSettingsModal, userSettings, exportDataBackup,
           isFavorite, toggleFavorite,
-          ALL_METHODS, ALL_QUESTIONS, solveSubTab, selectedPracticeMethod, currentPracticeIndex,
-          filteredSolveQuestions, currentPracticeQ, solveUserAnswers, isSolveSubmitted, isSolveCorrect,
-          toggleSolveOption, submitSolvePractice, gradeSolveSRS, startPracticeMethod, getMethodName,
-          isSolveMistake, toggleSolveMistake,
-          currentBlindIndex, blindUserAnswers, chosenBlindMethod, isBlindSubmitted, currentBlindQ,
-          toggleBlindOption, isBlindMethodHit, submitBlind, nextBlindQuestion,
-          isMockRunning, mockSeconds, mockPool, mockQIndex, currentMockQ, mockAnswers,
-          startMockExam, toggleMockOpt, finishMockExam,
-          solveMistakeQuestions, solveMistakeCount, solvePracticedCount, solveAccuracy, getMethodStatStd,
+          ALL_METHODS, ALL_QUESTIONS, ALL_METHOD_CARDS, ALL_TOMBSTONE_INDEX, CHAPTER_LIST,
+          solveSubTab, methodsActiveTab, methodCardQuery, methodCardCategory, tombstoneQuery,
+          filteredMethodCards, filteredTombstones, activeMethodCard, openMethodCardByNum,
+          highlightTombstonesHtml, handleTombstoneClick,
+          practiceMode, selectedPracticeChapter, selectedQuestionFilter, isBlindMode, chosenBlindChapter,
+          showPracticeSheet, currentPracticeIndex, filteredSolveQuestions, currentPracticeQ,
+          solveUserAnswers, isSolveSubmitted, isSolveCorrect, getChapterCount, resetPracticeCursor,
+          jumpPracticeTo, shufflePracticePool, toggleSolveOption, submitSolvePractice, gradeSolveSRS,
+          startPracticeChapter, startPracticeMethod, startMistakesBlitz, practiceSingleQuestion, getMethodName,
+          isSolveMistake, toggleSolveMistake, solveRecords,
+          isMockRunning, mockPreferUnpracticed, mockSeconds, mockPool, mockQIndex, currentMockQ,
+          mockAnswers, mockFlagged, showMockSheet, mockReport, mockReviewFilter, mockReviewItems,
+          startMockExam, toggleMockOpt, toggleMockFlag, finishMockExam, addMockWrongsToBook,
+          mistakeChapterFilter, solveMistakeQuestions, filteredMistakeQuestions, solveMistakeCount,
+          solvePracticedCount, solveAccuracy, getChapterStat, getMethodStatStd,
           ALL_MINDSETS, mindsetPrinciples, classicMarxQuotes, tombstoneWords,
-          methodsActiveTab, showMindsetBanner, showMarxModal, showTombstoneModal, getMethodObj
+          showMindsetBanner, showMarxModal, showTombstoneModal, getMethodObj
         };
       }
     }).mount('#app');
@@ -2911,6 +3161,8 @@ final_html = html_template.replace("__VUE_TAG__", vue_tag)\
     .replace("__ALL_METHODS_JSON__", methods_json_str)\
     .replace("__ALL_QUESTIONS_JSON__", questions_json_str)\
     .replace("__ALL_MINDSETS_JSON__", mindsets_json_str)\
+    .replace("__ALL_METHOD_CARDS_JSON__", method_cards_json_str)\
+    .replace("__ALL_TOMBSTONE_INDEX_JSON__", tombstone_index_json_str)\
     .replace("__ALL_IMAGES_JSON__", images_json_str)
 
 output_files = [

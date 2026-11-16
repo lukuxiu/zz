@@ -89,10 +89,10 @@ describe('交接文档验收测试套件 (Handoff Suggestions Validation)', () =
   describe('C. 解题方法题库数据严格校验 (Section C.1 & C.2)', () => {
     const validMethodIds = new Set(methodsData.map(m => m.id))
 
-    it('题库应正好包含 68 道真题且 ID 唯一', () => {
-      expect(questionsData).toHaveLength(68)
+    it('题库应正好包含 139 道真题且 ID 唯一', () => {
+      expect(questionsData).toHaveLength(139)
       const ids = new Set(questionsData.map(q => q.id))
-      expect(ids.size).toBe(68)
+      expect(ids.size).toBe(139)
     })
 
     it('每道题目必须符合标准题型架构与答案选项约束', () => {
