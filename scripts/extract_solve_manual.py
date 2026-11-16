@@ -75,19 +75,90 @@ def clean_line_joins(lines):
 
 
 def extract_method_cards(doc):
-    """Extract 知识点 001 ~ 073 from pages 9-32 (0-indexed 8..31)."""
-    all_lines = []
+    """Extract 知识点 001 ~ 073 from pages 9-32 (0-indexed 8..31) with color/row awareness."""
+    all_rows = []
     for p_idx in range(8, 33):
-        blocks = get_two_col_blocks(doc[p_idx], header_y=50, footer_y=810)
-        for b in blocks:
-            for line in b.splitlines():
-                ls = line.strip()
-                if ls:
-                    all_lines.append((p_idx + 1, ls))
+        page = doc[p_idx]
+        mid_x = page.rect.width / 2.0
+        d = page.get_text("dict")
+        col_lines = [[], []]
+        for b in d["blocks"]:
+            if b["type"] != 0:
+                continue
+            for l in b["lines"]:
+                x0, y0, x1, y1 = l["bbox"]
+                if y1 < 50 or y0 > 810:
+                    continue
+                col_idx = 0 if x0 < mid_x - 20 else 1
+                spans = []
+                for s in l["spans"]:
+                    t = s["text"]
+                    if t.strip():
+                        spans.append((s["color"], s["size"], t))
+                if spans:
+                    col_lines[col_idx].append((y0, x0, spans))
+
+        for col_idx in (0, 1):
+            items = sorted(col_lines[col_idx], key=lambda it: (it[0], it[1]))
+            # Merge items on same visual row (abs(y0 - prev_y0) <= 2.2)
+            merged_rows = []
+            for y0, x0, spans in items:
+                if merged_rows and abs(y0 - merged_rows[-1]["y0"]) <= 2.2:
+                    merged_rows[-1]["chunks"].append((x0, spans))
+                else:
+                    merged_rows.append({"y0": y0, "x0": x0, "chunks": [(x0, spans)]})
+
+            stop_page = False
+            for r in merged_rows:
+                r["chunks"].sort(key=lambda ch: ch[0])
+                r_spans = []
+                for _, ch_spans in r["chunks"]:
+                    r_spans.extend(ch_spans)
+                r["spans"] = r_spans
+                full_text = "".join(sp[2] for sp in r["spans"]).strip()
+                if not full_text or full_text in ("澄潇宇一页纸", "解题方法手册"):
+                    continue
+                if "C O N T E N T S" in full_text or "遴选题目录" in full_text:
+                    stop_page = True
+                    break
+                # Analyze color semantics
+                has_blue = any(((sp[0] & 0xff) > 180 and ((sp[0] >> 16) & 0xff) < 80) for sp in r["spans"])
+                has_orange = any((((sp[0] >> 16) & 0xff) > 200 and 50 < ((sp[0] >> 8) & 0xff) < 160) for sp in r["spans"])
+                red_words = []
+                curr_red = []
+                for col, sz, txt in r["spans"]:
+                    r_c = (col >> 16) & 0xff
+                    g_c = (col >> 8) & 0xff
+                    b_c = col & 0xff
+                    if r_c > 180 and g_c < 60 and b_c < 60:
+                        curr_red.append(txt.strip())
+                    else:
+                        if curr_red:
+                            w = "".join(curr_red).strip()
+                            if w and w not in red_words:
+                                red_words.append(w)
+                            curr_red = []
+                if curr_red:
+                    w = "".join(curr_red).strip()
+                    if w and w not in red_words:
+                        red_words.append(w)
+
+                all_rows.append({
+                    "page": p_idx + 1,
+                    "col": col_idx,
+                    "y0": r["y0"],
+                    "text": full_text,
+                    "has_blue": has_blue,
+                    "has_orange": has_orange,
+                    "red_words": red_words,
+                })
+            if stop_page:
+                break
 
     cards = []
     curr = None
-    for page_no, line in all_lines:
+    for row in all_rows:
+        line = row["text"]
         m = re.match(r'^知识点\s*(\d{3})$', line)
         if m:
             if curr:
@@ -96,11 +167,11 @@ def extract_method_cards(doc):
             curr = {
                 "id": f"method-kp-{num}",
                 "num": num,
-                "page": page_no,
+                "page": row["page"],
                 "breadcrumb": "",
                 "category": "",
                 "title": "",
-                "lines": [],
+                "rows": [],
             }
             continue
         if curr is None:
@@ -109,27 +180,86 @@ def extract_method_cards(doc):
             curr["breadcrumb"] = line
             curr["category"] = line.split("›")[0].strip()
             continue
+        if "›" in line and line.startswith(curr["category"]):
+            continue
         if not curr["title"]:
             curr["title"] = line
             continue
-        curr["lines"].append(line)
+        curr["rows"].append(row)
 
     if curr:
         cards.append(curr)
 
-    # Deduplicate by num (if a card header repeated on continuation page, merge lines)
     merged = {}
     for c in cards:
         num = c["num"]
         if num not in merged:
             merged[num] = c
         else:
-            merged[num]["lines"].extend(c["lines"])
+            merged[num]["rows"].extend(c["rows"])
 
     result = []
     for num in sorted(merged.keys()):
         c = merged[num]
-        body = clean_line_joins(c["lines"])
+        # Build structured items by grouping tightly-wrapped lines of same color
+        items = []
+        for r in c["rows"]:
+            txt = r["text"]
+            # Extract trailing ref like "2006-4D" or "文2001-25D"
+            ref = ""
+            m_ref = re.search(r'(文?\d{4}-\d+[A-D]*)$', txt)
+            if m_ref:
+                ref = m_ref.group(1)
+                txt = txt[:m_ref.start()].strip()
+
+            kind = "text"
+            if r["has_blue"] or txt.startswith("❌"):
+                kind = "wrong"
+            elif re.match(r'^(核心|口诀|核心原则|原则|总结)[：:]', txt) or r["has_orange"]:
+                kind = "rule"
+            elif re.match(r'^(改正|正确|对的|✅)[：:]?', txt):
+                kind = "correct"
+            elif re.match(r'^(⚠️|注意|避坑|特殊情况|注)[：:]?', txt):
+                kind = "note"
+
+            # Join tightly wrapped continuation line if same kind, tight y-gap, no ref on prev
+            if items and items[-1]["page"] == r["page"] and items[-1]["col"] == r["col"] \
+               and (r["y0"] - items[-1]["y0"]) <= 13.5 \
+               and items[-1]["kind"] == kind and not items[-1]["ref"] \
+               and not items[-1]["text"].endswith(("。", "？", "！", "：", ":", "）", ")")) \
+               and not re.match(r'^([A-D]\.|[0-9]+[\.、]|•|比如|错的|对的|改正|核心|特殊情况|⚠️|❌|✅)', txt):
+                items[-1]["text"] += txt
+                if ref:
+                    items[-1]["ref"] = ref
+                for rw in r["red_words"]:
+                    if rw not in items[-1]["redWords"]:
+                        items[-1]["redWords"].append(rw)
+                items[-1]["y0"] = r["y0"]
+            else:
+                items.append({
+                    "kind": kind,
+                    "text": txt,
+                    "ref": ref,
+                    "redWords": r["red_words"],
+                    "page": r["page"],
+                    "col": r["col"],
+                    "y0": r["y0"],
+                })
+
+        clean_items = []
+        content_lines = []
+        for it in items:
+            if not it["text"]:
+                continue
+            clean_items.append({
+                "kind": it["kind"],
+                "text": it["text"],
+                "ref": it["ref"],
+                "redWords": it["redWords"],
+            })
+            line_str = it["text"] + (f" [{it['ref']}]" if it["ref"] else "")
+            content_lines.append(line_str)
+
         result.append({
             "id": c["id"],
             "num": num,
@@ -137,7 +267,8 @@ def extract_method_cards(doc):
             "category": c["category"] or "墓碑词",
             "breadcrumb": c["breadcrumb"],
             "title": c["title"],
-            "content": body,
+            "content": "\n".join(content_lines),
+            "items": clean_items,
         })
     return result
 
