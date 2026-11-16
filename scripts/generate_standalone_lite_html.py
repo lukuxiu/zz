@@ -823,12 +823,40 @@ html_template = """<!DOCTYPE html>
     .q-sheet-dot.done-err { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
     .q-sheet-dot.answered { background: #e0f2fe; border-color: #7dd3fc; color: #0369a1; }
     .q-sheet-dot.flagged::after { content: "🚩"; position: absolute; top: -4px; right: -4px; font-size: 10px; }
-    @media (max-width: 640px) {
+    @media (max-width: 768px) {
+      /* 确保所有移动端规则在桌面样式之后正确覆盖 */
+      .solve-sub-nav {
+        top: 52px; margin: -12px -10px 2px -10px; padding: 8px 10px;
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+        overflow-x: visible;
+      }
+      .solve-sub-nav .sub-pill {
+        text-align: center; padding: 7px 4px; font-size: 12px;
+        overflow: hidden; text-overflow: ellipsis;
+      }
+      .mindset-nav-tabs {
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+      }
+      .mindset-nav-tabs .sub-pill {
+        text-align: center; justify-content: center; padding: 6px 4px; font-size: 11.5px;
+        overflow: hidden; text-overflow: ellipsis;
+      }
+      .mc-example-row {
+        flex-wrap: wrap; padding: 8px; gap: 6px; font-size: 13.5px; line-height: 1.6;
+      }
+      .mc-ref-tag { font-size: 10.5px; padding: 1px 5px; }
+      .opt-std-item { padding: 10px; gap: 8px; margin-bottom: 6px; }
+      .opt-bubble-std { min-width: 24px; height: 24px; font-size: 12px; }
       .solve-mobile-bar {
-        position: sticky; bottom: 8px; z-index: 30; background: rgba(255,255,255,0.96);
-        backdrop-filter: blur(8px); border: 1px solid var(--border-card); border-radius: 12px;
+        position: sticky; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 30;
+        background: rgba(255,255,255,0.96); backdrop-filter: blur(8px);
+        border: 1px solid var(--border-card); border-radius: 12px;
         padding: 8px 10px; box-shadow: var(--shadow-md);
       }
+      .solve-mobile-bar button { white-space: nowrap; font-size: 13px; }
+      .modal-overlay { padding: 10px; }
+      .modal-dialog { max-height: 88dvh; }
+      input[type="text"], select { font-size: 14px !important; }
     }
   </style>
 </head>
