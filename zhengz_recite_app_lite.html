@@ -1125,14 +1125,34 @@
             </div>
           </div>
 
-          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(310px, 1fr)); gap:12px;">
-            <div v-for="mc in filteredMethodCards" :key="mc.id" class="method-kp-card">
-              <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
-                <span class="method-kp-badge">知识点 {{ mc.num }}</span>
-                <span style="font-size:11px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ mc.breadcrumb }}</span>
+          <div style="display:flex; flex-direction:column; gap:14px;">
+            <div v-for="mc in filteredMethodCards" :key="mc.id" :class="['card-container', 'font-' + userSettings.fontSizeLevel]">
+              <div class="card-header">
+                <div class="header-left">
+                  <span class="source-id-tag">知识点 {{ mc.num }}</span>
+                  <span class="hierarchy-tag">{{ mc.breadcrumb }}</span>
+                </div>
+                <span class="page-hint" style="font-size:11px;">手册 P.{{ mc.page }}</span>
               </div>
-              <div style="font-size:16px; font-weight:800; color:var(--text-main);">{{ mc.title }}</div>
-              <div style="font-size:13px; color:var(--text-regular); white-space:pre-line; line-height:1.65;">{{ mc.content }}</div>
+              <div class="card-title-bar">
+                <div class="kp-title">{{ mc.title }}</div>
+              </div>
+              <div class="card-body">
+                <div v-if="formatMethodCardSections(mc).bodyHtml" class="content-text" style="white-space:pre-line;" v-html="formatMethodCardSections(mc).bodyHtml"></div>
+                <div v-if="formatMethodCardSections(mc).mnemonics.length" class="mnemonics-box">
+                  <div v-for="(ml, mIdx) in formatMethodCardSections(mc).mnemonics" :key="mIdx" class="mnemonic-item">
+                    <span>💡</span>
+                    <span v-html="ml"></span>
+                  </div>
+                </div>
+                <div v-if="formatMethodCardSections(mc).distinctions.length" class="distinctions-box">
+                  <div class="dist-title">⚠️ 易混辨析 / 避坑例句</div>
+                  <div v-for="(dl, dIdx) in formatMethodCardSections(mc).distinctions" :key="dIdx" class="dist-item">
+                    <span :class="['dist-badge', dl.badgeType]">{{ dl.badgeLabel }}</span>
+                    <span v-html="dl.html"></span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1613,17 +1633,36 @@
       </div>
     </template>
 
-    <!-- 方法卡片速查弹窗 (点击墓碑词高亮或索引触发) -->
+    <!-- 方法卡片速查弹窗 (点击墓碑词高亮或索引触发，与知识点词卡同款风格) -->
     <template v-if="activeMethodCard">
       <div class="modal-overlay" @click.self="activeMethodCard = null">
-        <div class="modal-dialog" style="max-width:560px; max-height:85vh; display:flex; flex-direction:column;">
-          <div class="modal-header">
-            <div style="font-weight:bold; font-size:15px;">📖 知识点 {{ activeMethodCard.num }} · {{ activeMethodCard.title }}</div>
-            <button style="background:none; font-size:18px;" @click="activeMethodCard = null">✕</button>
+        <div :class="['card-container', 'font-' + userSettings.fontSizeLevel]" style="width:100%; max-width:600px; max-height:85vh; display:flex; flex-direction:column;">
+          <div class="card-header">
+            <div class="header-left">
+              <span class="source-id-tag">知识点 {{ activeMethodCard.num }}</span>
+              <span class="hierarchy-tag">{{ activeMethodCard.breadcrumb }}</span>
+            </div>
+            <button style="background:none; font-size:18px; padding:2px 6px;" @click="activeMethodCard = null">✕</button>
           </div>
-          <div style="padding:18px; overflow-y:auto; display:flex; flex-direction:column; gap:10px;">
-            <div style="font-size:12px; color:var(--primary-accent); font-weight:bold;">{{ activeMethodCard.breadcrumb }}</div>
-            <div style="font-size:14px; line-height:1.75; white-space:pre-line; color:var(--text-main);">{{ activeMethodCard.content }}</div>
+          <div class="card-title-bar">
+            <div class="kp-title">{{ activeMethodCard.title }}</div>
+            <span class="page-hint">手册 P.{{ activeMethodCard.page }}</span>
+          </div>
+          <div class="card-body" style="overflow-y:auto;">
+            <div v-if="formatMethodCardSections(activeMethodCard).bodyHtml" class="content-text" style="white-space:pre-line;" v-html="formatMethodCardSections(activeMethodCard).bodyHtml"></div>
+            <div v-if="formatMethodCardSections(activeMethodCard).mnemonics.length" class="mnemonics-box">
+              <div v-for="(ml, mIdx) in formatMethodCardSections(activeMethodCard).mnemonics" :key="mIdx" class="mnemonic-item">
+                <span>💡</span>
+                <span v-html="ml"></span>
+              </div>
+            </div>
+            <div v-if="formatMethodCardSections(activeMethodCard).distinctions.length" class="distinctions-box">
+              <div class="dist-title">⚠️ 易混辨析 / 避坑例句</div>
+              <div v-for="(dl, dIdx) in formatMethodCardSections(activeMethodCard).distinctions" :key="dIdx" class="dist-item">
+                <span :class="['dist-badge', dl.badgeType]">{{ dl.badgeLabel }}</span>
+                <span v-html="dl.html"></span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -2433,6 +2472,50 @@
           if (found) activeMethodCard.value = found;
         }
 
+        function highlightMethodKeywords(text) {
+          let safe = escapeHtml(text);
+          const keys = ['墓碑词', '绝对', '必须', '一定', '唯一', '全部', '所有', '一切', '根本', '决定', '取代', '代替', '主导', '已经', '完成', '实现', '疑罪从无', '排除法', '对冲', '不合题意'];
+          const ph = [];
+          for (const k of keys) {
+            if (safe.includes(k)) {
+              const idx = ph.length;
+              ph.push(`<span class="keyword-highlight" style="--kw-color: var(--primary-accent);">${k}</span>`);
+              safe = safe.split(k).join(`__MK_PH_${idx}__`);
+            }
+          }
+          ph.forEach((html, i) => { safe = safe.split(`__MK_PH_${i}__`).join(html); });
+          return safe;
+        }
+
+        function formatMethodCardSections(mc) {
+          const lines = String(mc?.content || '').split('
+').map(l => l.trim()).filter(Boolean);
+          const bodyLines = [];
+          const mnemonics = [];
+          const distinctions = [];
+          for (const line of lines) {
+            if (/^(核心|口诀|核心原则|总结|原则)[：:]/.test(line)) {
+              mnemonics.push(highlightMethodKeywords(line));
+            } else if (/^(❌|⚠️|注意|避坑|特殊情况|易错)/.test(line)) {
+              const isWrong = line.startsWith('❌');
+              const cleanLine = line.replace(/^[❌⚠️]+\s*/, '');
+              distinctions.push({
+                badgeType: isWrong ? 'wrong' : 'unclear',
+                badgeLabel: isWrong ? '误区' : '注意',
+                html: highlightMethodKeywords(cleanLine)
+              });
+            } else {
+              bodyLines.push(highlightMethodKeywords(line));
+            }
+          }
+          return {
+            bodyHtml: bodyLines.join('
+'),
+            mnemonics,
+            distinctions
+          };
+        }
+
         function escapeHtml(str) {
           return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         }
@@ -3089,7 +3172,7 @@
           isFavorite, toggleFavorite,
           ALL_METHODS, ALL_QUESTIONS, ALL_METHOD_CARDS, ALL_TOMBSTONE_INDEX, CHAPTER_LIST,
           solveSubTab, methodsActiveTab, methodCardQuery, methodCardCategory, tombstoneQuery,
-          filteredMethodCards, filteredTombstones, activeMethodCard, openMethodCardByNum,
+          filteredMethodCards, filteredTombstones, activeMethodCard, openMethodCardByNum, formatMethodCardSections,
           highlightTombstonesHtml, handleTombstoneClick,
           practiceMode, selectedPracticeChapter, selectedQuestionFilter, isBlindMode, chosenBlindChapter,
           showPracticeSheet, currentPracticeIndex, filteredSolveQuestions, currentPracticeQ,
